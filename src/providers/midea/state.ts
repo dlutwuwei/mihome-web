@@ -7,6 +7,7 @@ export const REGIONS: Record<string, { name: string; host: string }> = {
 export interface MideaField {
   key: string;
   boolStyle: "" | "bool" | "onoff" | "zo" | "num";
+  asText: boolean;
 }
 
 export interface MideaAuthState {

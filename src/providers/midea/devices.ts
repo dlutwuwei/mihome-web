@@ -8,6 +8,7 @@ const LABELS: Record<string, string> = {
   power: "开关",
   poweron: "开关",
   mode: "模式",
+  program: "程序",
   temperature: "温度",
   targettemperature: "目标温度",
   indoortemperature: "室内温度",
@@ -15,9 +16,68 @@ const LABELS: Record<string, string> = {
   humidity: "湿度",
   windspeed: "风速",
   fanspeed: "风速",
+  running_status: "状态",
+  remain_time: "剩余时间",
+  progress: "进度",
+  error_code: "故障",
+  lock: "童锁",
+  water_level: "水位",
+  memory: "记忆",
+  spray_wash: "喷淋",
+  nightly: "夜间",
+  down_light: "筒灯",
+  easy_ironing: "免熨",
+  beforehand_wash: "预洗",
+  intelligent_wash: "智能洗",
+  strong_wash: "强力",
+  steam_wash: "蒸汽",
+  fast_clean_wash: "速净",
+  super_clean_wash: "超净",
+  soak: "浸泡",
+  speedy: "快速",
+  dehydration_speed: "脱水转速",
+  appointment: "预约",
+  storage_temperature: "冷藏温度",
+  freezing_temperature: "冷冻温度",
+  left_flexzone_temperature: "左变温",
+  right_flexzone_temperature: "右变温",
+  storage_power: "冷藏开关",
+  freezing_power: "冷冻开关",
+  left_flexzone_power: "左变温开关",
+  right_flexzone_power: "右变温开关",
+  function_zone_power: "功能区开关",
+  all_refrigeration_power: "全冷藏",
+  storage_mode: "冷藏模式",
+  freezing_mode: "冷冻模式",
+  intelligent_mode: "智能模式",
+  holiday_mode: "假日模式",
+  variable_mode: "变温模式",
 };
 
-const PREFERRED = ["power", "poweron", "mode", "temperature", "targettemperature", "indoortemperature", "humidity"];
+const VALUES: Record<string, string> = {
+  mixed_wash: "混合洗",
+  normal: "标准",
+  idle: "待机",
+  auto: "自动",
+  partial_freezing_mode: "微冻",
+};
+
+const PREFERRED = [
+  "power",
+  "poweron",
+  "program",
+  "mode",
+  "temperature",
+  "storage_power",
+  "freezing_power",
+  "storage_temperature",
+  "freezing_temperature",
+  "running_status",
+  "remain_time",
+];
+
+const STATUS_PATH = "/v1/device/status/lua/get";
+const CONTROL_PATH = "/v1/device/lua/control";
 
 function labelOf(key: string) {
   return LABELS[key.toLowerCase()] || key;
@@ -31,8 +91,9 @@ function textOf(value: unknown) {
   if (typeof value === "boolean") return value ? "开" : "关";
   if (value === "on" || value === "1") return "开";
   if (value === "off" || value === "0") return "关";
-  if (value == null) return "";
-  return String(value);
+  if (value == null || value === "nonexistence") return "";
+  const text = String(value);
+  return VALUES[text] || text;
 }
 
 function boolStyle(value: unknown): MideaField["boolStyle"] {
@@ -43,47 +104,86 @@ function boolStyle(value: unknown): MideaField["boolStyle"] {
   return "";
 }
 
-function isWritable(key: string) {
+function isHidden(key: string, value: unknown) {
+  if (value == null || value === "" || value === "nonexistence") return true;
   const name = key.toLowerCase();
-  if (name.includes("indoor") || name.includes("outdoor") || name.includes("humidity")) return false;
-  return name === "power" || name === "poweron" || name.includes("temperature") || name.includes("wind") || name.includes("fan");
+  if (/door|real_temperature|humidity|expire|consumption|fahrenheit|motor_|human_induction|food_site|version|project_no|data_type|expert_step|minute$/.test(name)) return true;
+  if (/beef|pork|mutton|chicken|fish|shrimp|dumpling|duck_meat|ice_cream|gluepudding/.test(name)) return true;
+  return false;
+}
+
+function isReadout(key: string) {
+  const name = key.toLowerCase();
+  return /error|remain_time|progress|running_status|wash_time$|dehydration_time$|appointment_time|status$|unit$/.test(name);
+}
+
+function isSetpoint(key: string) {
+  const name = key.toLowerCase();
+  if (!name.includes("temperature") && !name.includes("wind") && !name.includes("fan")) return false;
+  return !/real|unit|fahrenheit|status|indoor|outdoor|humidity/.test(name);
+}
+
+function rangeOf(key: string, value: number): [number, number, number] {
+  const name = key.toLowerCase();
+  if (name === "temperature" || name.includes("wind") || name.includes("fan")) return [0, 95, 1];
+  if (name.includes("freezing") && !name.includes("flex")) return [-24, -12, 1];
+  if (name.includes("storage") || name.includes("refrigerat")) return [2, 8, 1];
+  if (name.includes("flex") || name.includes("variable")) return [-20, 10, 1];
+  if (value <= 0) return [-24, 10, 1];
+  return [2, 30, 1];
 }
 
 const SKIP = new Set(["reqId", "stamp", "requestId", "applianceCode", "command", "message", "msg", "code"]);
 
+function isCommand(key: string, value: unknown) {
+  const style = boolStyle(value);
+  if (isReadout(key) || isHidden(key, value)) return false;
+  return style === "bool" || style === "onoff";
+}
+
 function fieldsFrom(status: Record<string, unknown>) {
   const keys = Object.keys(status).filter((key) => {
-    if (SKIP.has(key)) return false;
+    if (SKIP.has(key) || isHidden(key, status[key])) return false;
     const value = status[key];
-    return value == null || ["string", "number", "boolean"].includes(typeof value);
+    if (!["string", "number", "boolean"].includes(typeof value)) return false;
+    return isCommand(key, value) || isSetpoint(key) || PREFERRED.includes(key.toLowerCase()) || isReadout(key);
   });
   keys.sort((a, b) => {
-    const ia = PREFERRED.indexOf(a.toLowerCase());
-    const ib = PREFERRED.indexOf(b.toLowerCase());
-    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    const rank = (key: string) => {
+      const writable = isCommand(key, status[key]) || isSetpoint(key);
+      const preferred = PREFERRED.indexOf(key.toLowerCase());
+      return (writable ? 0 : 50) + (preferred < 0 ? 40 : preferred);
+    };
+    return rank(a) - rank(b);
   });
-  return keys.map((key) => ({ key, style: boolStyle(status[key]) }));
+  return keys.map((key) => ({
+    key,
+    style: boolStyle(status[key]),
+    asText: typeof status[key] === "string",
+  }));
 }
 
 function propertyOf(key: string, value: unknown, index: number): DeviceProperty {
   const style = boolStyle(value);
-  const name = key.toLowerCase();
-  const numeric = typeof value === "number" || (typeof value === "string" && value !== "" && !Number.isNaN(Number(value)));
-  const temp = name.includes("temperature") && !name.includes("indoor") && !name.includes("outdoor");
+  const numeric = typeof value === "number" || (typeof value === "string" && value !== "" && !Number.isNaN(Number(value)) && style !== "zo");
+  const setpoint = isSetpoint(key) && numeric;
+  const command = isCommand(key, value);
+  const numberValue = typeof value === "number" ? value : Number(value);
+  const shown = VALUES[String(value)] || value;
   return {
     siid: 1,
     piid: index,
     name: labelOf(key),
-    format: style ? "bool" : numeric ? "number" : "string",
-    writable: Boolean(style) ? isWritable(key) : temp && numeric,
-    range: temp && numeric ? [16, 30, 1] : null,
+    format: command ? "bool" : setpoint ? "number" : "string",
+    writable: command || setpoint,
+    range: setpoint ? rangeOf(key, numberValue) : null,
     list: [],
-    value: style ? value === true || value === "on" || value === "1" || value === 1 : numeric && temp ? Number(value) : value,
+    value: command ? value === true || value === "on" || value === "1" || value === 1 : setpoint ? numberValue : shown,
   };
 }
 
 async function readStatus(state: ReturnType<typeof sessionState>, did: string) {
-  const data = await mas(state, "/mjl/v1/device/status/lua/get", {
+  const data = await mas(state, STATUS_PATH, {
     applianceCode: did,
     command: { query: {} },
   });
@@ -166,11 +266,14 @@ export async function refreshLive(session: VendorSession, devices: DeviceSummary
   await Promise.all(devices.map(async (device) => {
     try {
       const status = await readStatus(state, device.did);
-      const fields = fieldsFrom(status).slice(0, 4);
-      live[device.did] = fields.flatMap(({ key }) => {
+      const present = new Map(Object.keys(status).map((key) => [key.toLowerCase(), key]));
+      const picked = PREFERRED.flatMap((name) => {
+        const key = present.get(name);
+        if (!key || isHidden(key, status[key])) return [];
         const text = textOf(status[key]);
         return text ? [{ name: labelOf(key), text }] : [];
-      });
+      }).slice(0, 4);
+      live[device.did] = picked;
     } catch {
       live[device.did] = [];
     }
@@ -184,7 +287,7 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
   const state = sessionState(session.state);
   const status = await readStatus(state, did);
   const rows = fieldsFrom(status);
-  state.fields.set(did, rows.map((row) => ({ key: row.key, boolStyle: row.style })));
+  state.fields.set(did, rows.map((row) => ({ key: row.key, boolStyle: row.style, asText: row.asText })));
   const properties = rows.map((row, index) => propertyOf(row.key, status[row.key], index));
   return {
     device,
@@ -197,6 +300,7 @@ function controlValue(field: MideaField, value: unknown) {
   if (field.boolStyle === "zo") return value ? "1" : "0";
   if (field.boolStyle === "num") return value ? 1 : 0;
   if (field.boolStyle === "bool") return Boolean(value);
+  if (field.asText) return String(value);
   return value;
 }
 
@@ -204,7 +308,7 @@ export async function setProperty(session: VendorSession, did: string, _siid: nu
   const state = sessionState(session.state);
   const field = state.fields.get(did)?.[piid];
   if (!field) throw new AppError("请先打开设备", "DEVICE", 400);
-  await mas(state, "/mjl/v1/device/lua/control", {
+  await mas(state, CONTROL_PATH, {
     applianceCode: did,
     command: { control: { [field.key]: controlValue(field, value) } },
   });
