@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DevicePanel } from "../components/DevicePanel";
+import { DevicePanel, type PrintOptions } from "../components/DevicePanel";
 import { VendorLogin } from "../components/VendorLogin";
 import type { Account, Device, DeviceAction, DeviceDetail, DeviceProp, LiveChip, PropValue, VendorInfo } from "../types";
-import { api, errorText } from "../utils/api";
+import { api, apiForm, errorText } from "../utils/api";
 import { deviceKey, devicePath, mergeLive } from "../utils/device";
 import { climatePlace, climateView, isClimate, placeOf, runningView, shortVendor, summarize } from "../utils/present";
 
@@ -119,6 +119,30 @@ export function Home({
       await refreshDetail(target, seq);
     } catch (err) {
       if (seq === detailSeq.current) setError(errorText(err));
+    }
+  }
+
+  async function uploadPrint(file: File, options: PrintOptions) {
+    const target = current;
+    const seq = detailSeq.current;
+    if (!target) return;
+    setError("");
+    const body = new FormData();
+    body.append("file", file);
+    body.append("copies", String(options.copies));
+    body.append("mode", options.mode);
+    body.append("duplex", options.duplex);
+    body.append("collate", options.collate);
+    body.append("paperSize", options.paperSize);
+    body.append("paperType", options.paperType);
+    body.append("feeder", options.feeder);
+    try {
+      await apiForm(`${devicePath(target.accountId, target.did)}/print`, body);
+      if (seq !== detailSeq.current) return;
+      await refreshDetail(target, seq);
+    } catch (err) {
+      if (seq === detailSeq.current) setError(errorText(err));
+      throw err;
     }
   }
 
@@ -352,6 +376,7 @@ export function Home({
           onClose={closePanel}
           onSet={(prop, value) => void setProp(prop, value)}
           onAction={(action) => void runAction(action)}
+          onUpload={(file, options) => uploadPrint(file, options)}
         />
       ) : null}
       {adding ? (
