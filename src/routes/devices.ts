@@ -1,3 +1,4 @@
+import Busboy from "busboy";
 import { Router } from "express";
 import { AppError, isAuthFailure, toPublicError } from "../core/errors.js";
 import { getVendor } from "../core/registry.js";
@@ -88,6 +89,76 @@ devicesRouter.post("/:accountId/:did/prop", async (req, res) => {
     res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
   }
 });
+
+devicesRouter.post("/:accountId/:did/print", async (req, res) => {
+  const hub = requireHub(req, res);
+  if (!hub) return;
+  const session = getAccount(hub.hubId, req.params.accountId);
+  if (!session) return res.status(404).json({ error: "账号不存在" });
+  if (session.vendorId !== "pantum") return res.status(400).json({ error: "该设备不支持上传打印" });
+  let filename = "";
+  try {
+    const file = await readPrintFile(req);
+    filename = file.filename;
+    await printFile(session, req.params.did, file.body, file.mime, file.filename, file.fields);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("[print]", req.params.did, filename, error instanceof Error ? error.stack || error.message : error);
+    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+  }
+});
+
+function filenameOf(name: string) {
+  if (!name) return "document";
+  const decoded = Buffer.from(name, "latin1").toString("utf8");
+  return decoded.includes("\uFFFD") ? name : decoded;
+}
+
+function readPrintFile(req: import("express").Request) {
+  return new Promise<{ body: Buffer; mime: string; filename: string; fields: Record<string, string> }>((resolve, reject) => {
+    const type = req.headers["content-type"] || "";
+    if (!type.includes("multipart/form-data")) {
+      reject(new AppError("请上传文件", "PRINT", 400));
+      return;
+    }
+    const busboy = Busboy({ headers: req.headers, limits: { files: 1, fileSize: 20 * 1024 * 1024 } });
+    const chunks: Buffer[] = [];
+    const fields: Record<string, string> = {};
+    let mime = "";
+    let filename = "document";
+    let sawFile = false;
+    let tooBig = false;
+    busboy.on("field", (name, value) => {
+      fields[name] = value;
+    });
+    busboy.on("file", (name, file, info) => {
+      if (name !== "file") {
+        file.resume();
+        return;
+      }
+      sawFile = true;
+      mime = info.mimeType || "";
+      filename = filenameOf(info.filename);
+      file.on("data", (chunk: Buffer) => chunks.push(chunk));
+      file.on("limit", () => {
+        tooBig = true;
+      });
+    });
+    busboy.on("error", (error: Error) => reject(error));
+    busboy.on("finish", () => {
+      if (tooBig) {
+        reject(new AppError("文件超过 20MB", "PRINT", 400));
+        return;
+      }
+      if (!sawFile) {
+        reject(new AppError("请选择文件", "PRINT", 400));
+        return;
+      }
+      resolve({ body: Buffer.concat(chunks), mime, filename, fields });
+    });
+    req.pipe(busboy);
+  });
+}
 
 devicesRouter.post("/:accountId/:did/action", async (req, res) => {
   const hub = requireHub(req, res);

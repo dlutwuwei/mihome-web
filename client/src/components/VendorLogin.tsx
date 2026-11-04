@@ -234,7 +234,7 @@ export function VendorLogin({
         </label>
         {mode !== "qr" ? (
           <>
-            <label>{vendorId === "midea" ? "手机号" : "账号"}<input value={username} autoComplete="username" inputMode={vendorId === "midea" ? "tel" : undefined} onChange={(event) => setUsername(event.target.value)} /></label>
+            <label>{vendorId === "midea" || vendorId === "pantum" ? "手机号" : "账号"}<input value={username} autoComplete="username" inputMode={vendorId === "midea" || vendorId === "pantum" ? "tel" : undefined} onChange={(event) => setUsername(event.target.value)} /></label>
             {smsLogin ? (
               <label>短信验证码<input value={password} autoComplete="one-time-code" inputMode="numeric" onChange={(event) => setPassword(event.target.value)} /></label>
             ) : (
@@ -252,6 +252,7 @@ export function VendorLogin({
                 <label>邮箱验证码<input value={emailCode} autoComplete="one-time-code" onChange={(event) => setEmailCode(event.target.value)} /></label>
               </>
             ) : null}
+            {vendorId === "pantum" ? <p className="hint">使用奔图云账号。打印机需已在奔图 App 绑定。</p> : null}
             {vendorId === "demo" ? <p className="hint">演示账号任意用户名，密码 demo</p> : null}
             {vendorId === "midea" && mode === "password" ? <p className="hint">美居账号为手机号和密码</p> : null}
             {smsLogin ? <p className="hint">{needCaptcha ? "先填写图形验证码，再获取短信" : smsSent ? "短信已发送" : "验证码会发到这个手机号"}</p> : null}
