@@ -13,11 +13,20 @@ export interface VendorInfo {
   regions: Region[];
 }
 
+export type AccountState = "ok" | "expired" | "unknown";
+
+export interface AccountStatus {
+  state: AccountState;
+  checkedAt: number;
+  message?: string;
+}
+
 export interface Account {
   accountId: string;
   vendorId: string;
   userId: string;
   region: string;
+  status?: AccountStatus;
 }
 
 export interface OkSession {

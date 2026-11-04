@@ -107,6 +107,25 @@ input, select {
 .nav em { font-style: normal; color: var(--tertiary); font-size: 12px; font-variant-numeric: tabular-nums; }
 .nav button.on em { color: var(--secondary); }
 .foot { margin-top: auto; display: flex; flex-direction: column; gap: 12px; padding-top: 28px; }
+.foot.tight { margin-top: 12px; padding-top: 0; }
+.accounts { margin-top: auto; padding-top: 28px; }
+.account-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.account { padding: 10px 12px; border-radius: 12px; background: rgba(247, 244, 239, 0.6); }
+.account-top { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.account-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tertiary); flex: none; }
+.account-dot.ok { background: var(--sage); }
+.account-dot.expired { background: var(--danger); }
+.account-dot.unknown { background: var(--copper); }
+.account-vendor { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-state { margin-left: auto; color: var(--tertiary); font-size: 12px; white-space: nowrap; }
+.account-state.ok { color: var(--sage); }
+.account-state.expired { color: var(--danger); }
+.account-bottom { margin-top: 7px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.account-id { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tertiary); font-size: 12px; }
+.account .text { padding: 0; font-size: 12px; }
+.account-exit { flex: none; }
+.relogin { width: 100%; margin-top: 8px; border: 0; border-radius: 999px; padding: 6px 10px; background: var(--ink); color: #fff; font-size: 12px; }
+select:disabled { opacity: 0.7; cursor: default; }
 .text { border: 0; background: none; color: var(--secondary); text-align: left; padding: 0 0 0 12px; font-size: 14px; }
 .main { padding: 32px 40px 36px; min-width: 0; }
 .mast {

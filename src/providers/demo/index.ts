@@ -53,6 +53,9 @@ export const demoProvider: VendorProvider = {
     }
     return { kind: "ok", session: sessionFrom(pending) };
   },
+  async checkSession() {
+    // 演示账号没有远端登录态，始终视为正常。
+  },
   async listDevices(session) {
     const devices = [...session.devices.values()];
     return devices;

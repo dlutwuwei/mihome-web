@@ -7,6 +7,7 @@ import { deviceKey, devicePath, mergeLive } from "../utils/device";
 import { climatePlace, climateView, isClimate, placeOf, runningView, shortVendor, summarize } from "../utils/present";
 
 const LIVE_MS = 8000;
+const STATUS_MS = 5 * 60 * 1000;
 
 export function Home({
   accounts,
@@ -25,7 +26,9 @@ export function Home({
   const [detail, setDetail] = useState<DeviceDetail | null>(null);
   const [current, setCurrent] = useState<{ accountId: string; did: string } | null>(null);
   const [error, setError] = useState("");
+  const [relogin, setRelogin] = useState<Account | null>(null);
   const detailSeq = useRef(0);
+  const accountKey = accounts.map((account) => account.accountId).join(",");
 
   const loadDevices = useCallback(async () => {
     setError("");
@@ -39,6 +42,45 @@ export function Home({
       setLoading(false);
     }
   }, []);
+
+  const checkStatuses = useCallback(async () => {
+    try {
+      const data = await api<{ accounts: Account[] }>("/api/accounts/status");
+      onAccounts(data.accounts || []);
+    } catch {
+      /* 检查失败时保留已有状态，下一轮再试 */
+    }
+  }, [onAccounts]);
+
+  useEffect(() => {
+    if (!accountKey) return undefined;
+    let stop = false;
+    let inflight = false;
+
+    async function tick() {
+      if (stop || inflight || document.hidden) return;
+      inflight = true;
+      try {
+        await checkStatuses();
+      } finally {
+        inflight = false;
+      }
+    }
+
+    void tick();
+    const timer = window.setInterval(() => {
+      void tick();
+    }, STATUS_MS);
+    function onVisible() {
+      if (!document.hidden) void tick();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [accountKey, checkStatuses]);
 
   useEffect(() => {
     if (!accounts.length) {
@@ -76,7 +118,7 @@ export function Home({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [loadDevices, accounts]);
+  }, [loadDevices, accountKey]);
 
   async function openDevice(device: Device) {
     const seq = ++detailSeq.current;
@@ -187,6 +229,42 @@ export function Home({
     return vendors.find((item) => item.id === id)?.name || id || "";
   }
 
+  function accountView(account: Account) {
+    const status = account.status;
+    if (!status || !status.checkedAt) {
+      return { state: "unknown" as const, text: "检查中", title: "正在确认登录状态" };
+    }
+    if (status.state === "ok") return { state: "ok" as const, text: "正常", title: "登录状态正常" };
+    if (status.state === "expired") {
+      return { state: "expired" as const, text: "登录已失效", title: status.message || "请重新登录" };
+    }
+    return { state: "unknown" as const, text: "无法确认", title: status.message || "暂时无法确认登录状态" };
+  }
+
+  function accountLabel(account: Account) {
+    const id = account.userId || "";
+    if (!id) return "未知账号";
+    if (/^1\d{10}$/.test(id)) return `${id.slice(0, 3)}****${id.slice(-4)}`;
+    if (/^\d+$/.test(id)) return `ID …${id.slice(-4)}`;
+    if (id.length > 10) return `${id.slice(0, 4)}…${id.slice(-4)}`;
+    return id;
+  }
+
+  function openRelogin(account: Account) {
+    setRelogin(account);
+    setAdding(true);
+  }
+
+  function openAdd() {
+    setRelogin(null);
+    setAdding(true);
+  }
+
+  function closeLogin() {
+    setAdding(false);
+    setRelogin(null);
+  }
+
   const vendorIds = useMemo(() => {
     const ids: string[] = [];
     const seen = new Set<string>();
@@ -282,14 +360,37 @@ export function Home({
             </nav>
           </div>
         ) : null}
-        <div className="foot">
-          <button type="button" className="text" onClick={() => setAdding(true)}>添加厂商</button>
-          {accounts.length ? <button type="button" className="text" onClick={() => void loadDevices()}>刷新读数</button> : null}
-          {accounts.map((account) => (
-            <button type="button" className="text" key={account.accountId} onClick={() => void unlink(account.accountId)}>
-              {`退出 ${shortVendor(vendorName(account.vendorId))}`}
-            </button>
-          ))}
+        {accounts.length ? (
+          <div className="group accounts">
+            <p className="kicker">账号</p>
+            <ul className="account-list">
+              {accounts.map((account) => {
+                const view = accountView(account);
+                return (
+                  <li className="account" key={account.accountId}>
+                    <div className="account-top">
+                      <span className={`account-dot ${view.state}`} />
+                      <span className="account-vendor">{shortVendor(vendorName(account.vendorId))}</span>
+                      <span className={`account-state ${view.state}`} title={view.title}>{view.text}</span>
+                    </div>
+                    <div className="account-bottom">
+                      <span className="account-id" title={account.userId}>{accountLabel(account)}</span>
+                      <button type="button" className="text account-exit" onClick={() => void unlink(account.accountId)}>退出</button>
+                    </div>
+                    {view.state === "expired" ? (
+                      <button type="button" className="relogin" onClick={() => openRelogin(account)}>重新登录</button>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
+        <div className={accounts.length ? "foot tight" : "foot"}>
+          <button type="button" className="text" onClick={openAdd}>添加厂商</button>
+          {accounts.length ? (
+            <button type="button" className="text" onClick={() => { void loadDevices(); void checkStatuses(); }}>刷新读数</button>
+          ) : null}
           {accounts.length > 1 ? <button type="button" className="text" onClick={() => void logout()}>全部退出</button> : null}
         </div>
       </aside>
@@ -380,13 +481,22 @@ export function Home({
         />
       ) : null}
       {adding ? (
-        <div className="sheet" onClick={(event) => { if (event.target === event.currentTarget) setAdding(false); }}>
+        <div className="sheet" onClick={(event) => { if (event.target === event.currentTarget) closeLogin(); }}>
           <VendorLogin
             vendors={vendors}
-            onCancel={() => setAdding(false)}
+            initialVendorId={relogin?.vendorId}
+            initialRegion={relogin?.region}
+            initialUsername={relogin && /^1\d{10}$/.test(relogin.userId) ? relogin.userId : ""}
+            replaceAccountId={relogin?.accountId || ""}
+            heading={relogin ? "重新登录" : "添加厂商"}
+            note={relogin ? "登录成功后替换当前失效的账号。" : "登录对应厂商账号。已添加的账号保持不变。"}
+            vendorLocked={Boolean(relogin)}
+            onCancel={closeLogin}
             onSuccess={(next) => {
-              setAdding(false);
+              const wasRelogin = Boolean(relogin);
+              closeLogin();
               onAccounts(next);
+              if (wasRelogin) void loadDevices();
             }}
           />
         </div>

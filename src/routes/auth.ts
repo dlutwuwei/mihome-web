@@ -13,6 +13,7 @@ import {
   removeAccount,
   takePending,
 } from "../core/session.js";
+import { checkAccounts } from "../core/status.js";
 import type { VendorSession } from "../providers/types.js";
 
 export const authRouter = Router();
@@ -25,14 +26,14 @@ function clearHub(res: import("express").Response) {
   res.setHeader("Set-Cookie", "hub=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax");
 }
 
-function bind(req: import("express").Request, res: import("express").Response, session: VendorSession) {
-  const linked = attachAccount(readHubId(req.headers.cookie), session);
+function bind(req: import("express").Request, res: import("express").Response, session: VendorSession, replaceAccountId = "") {
+  const linked = attachAccount(readHubId(req.headers.cookie), session, replaceAccountId);
   setHub(res, linked.hubId);
   return { ok: true as const, accountId: linked.accountId, accounts: linked.accounts };
 }
 
 authRouter.post("/login/password", async (req, res) => {
-  const { username, password, region, captcha, pendingId, vendor = "xiaomi", method } = req.body || {};
+  const { username, password, region, captcha, pendingId, vendor = "xiaomi", method, accountId } = req.body || {};
   const useSms = method === "sms";
   let pending = pendingId ? takePending(String(pendingId)) : null;
   const restoreId = pendingId ? String(pendingId) : "";
@@ -62,7 +63,7 @@ authRouter.post("/login/password", async (req, res) => {
       const id = keepPending(outcome.pending);
       return res.json({ needEmailCode: true, pendingId: id, vendor: provider.id });
     }
-    res.json(bind(req, res, outcome.session));
+    res.json(bind(req, res, outcome.session, String(accountId || "")));
   } catch (error) {
     if (pending && restoreId) putPending(restoreId, pending);
     res.status(error instanceof AppError ? error.status : 400).json(toPublicError(error));
@@ -112,7 +113,7 @@ authRouter.post("/login/email", async (req, res) => {
     const provider = getVendor(row.vendorId);
     if (!provider.verifyEmail2fa) throw new AppError("该厂商不支持邮箱验证", "EMAIL", 400);
     const session = await provider.verifyEmail2fa(row, String(req.body?.code || "").trim());
-    res.json(bind(req, res, session));
+    res.json(bind(req, res, session, String(req.body?.accountId || "")));
   } catch (error) {
     putPending(String(req.body?.pendingId || ""), row);
     res.status(error instanceof AppError ? error.status : 400).json(toPublicError(error));
@@ -125,6 +126,7 @@ authRouter.post("/login/qr", async (req, res) => {
     const provider = getVendor(vendor);
     if (!provider.beginQr) throw new AppError("该厂商不支持扫码登录", "QR", 400);
     const row = provider.createPending(String(req.body?.region || "cn"));
+    row.replaceAccountId = String(req.body?.accountId || "");
     await provider.beginQr(row);
     const pendingId = keepPending(row);
     res.json({
@@ -164,7 +166,7 @@ authRouter.post("/login/qr/poll", async (req, res) => {
     const session = await provider.pollQr(row);
     if (!session) return res.json({ pending: true });
     dropPending(id);
-    res.json(bind(req, res, session));
+    res.json(bind(req, res, session, row.replaceAccountId));
   } catch (error) {
     res.status(502).json(toPublicError(error));
   }
@@ -185,4 +187,13 @@ authRouter.post("/logout", (req, res) => {
 
 authRouter.get("/me", (req, res) => {
   res.json({ accounts: listAccounts(readHubId(req.headers.cookie)) });
+});
+
+authRouter.get("/accounts/status", async (req, res) => {
+  try {
+    const accounts = await checkAccounts(readHubId(req.headers.cookie));
+    res.json({ accounts });
+  } catch (error) {
+    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+  }
 });

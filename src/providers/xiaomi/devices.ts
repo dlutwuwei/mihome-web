@@ -159,8 +159,28 @@ function controlsFromSpec(spec: SpecDoc | null): DeviceService[] {
   return services;
 }
 
+function requireToken(auth: ReturnType<typeof sessionState>) {
+  if (!auth.userId || !auth.serviceToken) {
+    throw new AppError("登录凭证已缺失，请重新登录", "AUTH", 401);
+  }
+}
+
+/** 轻量请求云端首页列表，确认登录态仍被接受。 */
+export async function checkSession(session: VendorSession) {
+  const auth = sessionState(session.state);
+  requireToken(auth);
+  await apiCall(auth, "/v2/homeroom/gethome", {
+    fg: true,
+    fetch_share: true,
+    fetch_share_dev: true,
+    limit: 300,
+    app_ver: 7,
+  });
+}
+
 export async function listDevices(session: VendorSession): Promise<DeviceSummary[]> {
   const auth = sessionState(session.state);
+  requireToken(auth);
   const homesResult = (await apiCall(auth, "/v2/homeroom/gethome", {
     fg: true,
     fetch_share: true,

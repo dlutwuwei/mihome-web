@@ -17,6 +17,7 @@ export const mideaProvider: VendorProvider = {
   loginSms: auth.loginSms,
   sendSms: auth.sendSms,
   getCaptchaImage: auth.getCaptchaImage,
+  checkSession: devices.checkSession,
   listDevices: devices.listDevices,
   refreshLive: devices.refreshLive,
   getDeviceDetail: devices.getDeviceDetail,

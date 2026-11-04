@@ -20,6 +20,7 @@ export const xiaomiProvider: VendorProvider = {
   pollQr: auth.pollQr,
   getCaptchaImage: auth.getCaptchaImage,
   getQrImage: auth.getQrImage,
+  checkSession: devices.checkSession,
   listDevices: devices.listDevices,
   refreshLive: devices.refreshLive,
   getDeviceDetail: devices.getDeviceDetail,
