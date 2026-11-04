@@ -3,6 +3,7 @@ import { Router } from "express";
 import { AppError, isAuthFailure, toPublicError } from "../core/errors.js";
 import { getVendor } from "../core/registry.js";
 import { accountsOf, getAccount, markAccountStatus, readHubId } from "../core/session.js";
+import { printFile } from "../providers/pantum/index.js";
 import type { DeviceSummary, LiveItem } from "../providers/types.js";
 
 export const devicesRouter = Router();
@@ -108,7 +109,7 @@ devicesRouter.post("/:accountId/:did/print", async (req, res) => {
   }
 });
 
-function filenameOf(name: string) {
+function filenameOf(name: string | undefined) {
   if (!name) return "document";
   const decoded = Buffer.from(name, "latin1").toString("utf8");
   return decoded.includes("\uFFFD") ? name : decoded;

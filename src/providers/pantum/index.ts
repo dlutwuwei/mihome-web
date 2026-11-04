@@ -82,6 +82,10 @@ export const pantumProvider: VendorProvider = {
     await refresh(session);
     return { kind: "ok", session };
   },
+  async checkSession(session) {
+    const state = stateOf(session);
+    await listBindDevices(state.token);
+  },
   listDevices: refresh,
   async refreshLive(session) {
     const devices = await refresh(session);
