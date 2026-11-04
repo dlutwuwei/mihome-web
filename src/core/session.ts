@@ -5,11 +5,22 @@ import { fileURLToPath } from "node:url";
 import type { DeviceSummary, PendingAuth, VendorSession } from "../providers/types.js";
 import { CookieJar } from "../providers/xiaomi/http.js";
 
+export type AccountState = "ok" | "expired" | "unknown";
+
+export interface AccountStatus {
+  state: AccountState;
+  /** 最近一次检查时间；0 表示服务重启后尚未检查。 */
+  checkedAt: number;
+  /** 检查失败时的原始信息，供界面提示。 */
+  message?: string;
+}
+
 export interface AccountView {
   accountId: string;
   vendorId: string;
   userId: string;
   region: string;
+  status: AccountStatus;
 }
 
 interface Hub {
@@ -17,6 +28,8 @@ interface Hub {
 }
 
 const hubs = new Map<string, Hub>();
+const statuses = new Map<string, AccountStatus>();
+const UNKNOWN: AccountStatus = { state: "unknown", checkedAt: 0 };
 const pending = new Map<string, PendingAuth>();
 const PENDING_TTL_MS = 10 * 60 * 1000;
 const storePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../data/hubs.json");
@@ -117,13 +130,30 @@ function restore() {
 
 restore();
 
-function views(hub: Hub): AccountView[] {
+function statusKey(hubId: string, accountId: string) {
+  return `${hubId}:${accountId}`;
+}
+
+function statusOf(hubId: string, accountId: string) {
+  return statuses.get(statusKey(hubId, accountId)) || UNKNOWN;
+}
+
+function views(hubId: string, hub: Hub): AccountView[] {
   return [...hub.accounts.entries()].map(([accountId, session]) => ({
     accountId,
     vendorId: session.vendorId,
     userId: session.userId,
     region: session.region,
+    status: { ...statusOf(hubId, accountId) },
   }));
+}
+
+export function markAccountStatus(hubId: string, accountId: string, status: AccountStatus) {
+  statuses.set(statusKey(hubId, accountId), { ...status });
+}
+
+export function forgetAccountStatus(hubId: string, accountId: string) {
+  statuses.delete(statusKey(hubId, accountId));
 }
 
 export function readHubId(cookieHeader?: string) {
@@ -138,7 +168,7 @@ export function getHub(hubId: string) {
 
 export function listAccounts(hubId: string) {
   const hub = hubs.get(hubId);
-  return hub ? views(hub) : [];
+  return hub ? views(hubId, hub) : [];
 }
 
 export function getAccount(hubId: string, accountId: string) {
@@ -151,14 +181,15 @@ export function accountsOf(hubId: string) {
   return [...hub.accounts.entries()].map(([accountId, session]) => ({ accountId, session }));
 }
 
-/** 同一厂商、同一用户再次登录时替换会话，其它账号保留。 */
-export function attachAccount(hubId: string | undefined, session: VendorSession) {
+/** 同一厂商、同一用户再次登录时替换会话，其它账号保留。重新登录可指定要替换的账号。 */
+export function attachAccount(hubId: string | undefined, session: VendorSession, replaceAccountId = "") {
   const id = hubId && hubs.has(hubId) ? hubId : crypto.randomBytes(18).toString("hex");
   let hub = hubs.get(id);
   if (!hub) {
     hub = { accounts: new Map() };
     hubs.set(id, hub);
   }
+  const replace = replaceAccountId && hub.accounts.has(replaceAccountId) ? replaceAccountId : "";
   let accountId = "";
   for (const [key, current] of hub.accounts) {
     if (current.vendorId === session.vendorId && current.userId === session.userId && current.region === session.region) {
@@ -166,23 +197,33 @@ export function attachAccount(hubId: string | undefined, session: VendorSession)
       break;
     }
   }
-  if (!accountId) accountId = crypto.randomBytes(9).toString("hex");
+  if (!accountId) accountId = replace || crypto.randomBytes(9).toString("hex");
+  if (replace && replace !== accountId) {
+    // 重新登录到了另一个已有账号：保留已有账号，移除被替换的失效账号。
+    hub.accounts.delete(replace);
+    forgetAccountStatus(id, replace);
+  }
   hub.accounts.set(accountId, session);
+  markAccountStatus(id, accountId, { state: "ok", checkedAt: Date.now() });
   persist();
-  return { hubId: id, accountId, accounts: views(hub) };
+  return { hubId: id, accountId, accounts: views(id, hub) };
 }
 
 export function removeAccount(hubId: string, accountId: string) {
   const hub = hubs.get(hubId);
   if (!hub) return [];
   hub.accounts.delete(accountId);
+  forgetAccountStatus(hubId, accountId);
   if (!hub.accounts.size) hubs.delete(hubId);
   persist();
-  return hub.accounts.size ? views(hub) : [];
+  return hub.accounts.size ? views(hubId, hub) : [];
 }
 
 export function deleteHub(hubId: string) {
   if (!hubs.delete(hubId)) return;
+  for (const key of [...statuses.keys()]) {
+    if (key.startsWith(`${hubId}:`)) statuses.delete(key);
+  }
   persist();
 }
 

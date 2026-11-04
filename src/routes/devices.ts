@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { AppError, toPublicError } from "../core/errors.js";
+import { AppError, isAuthFailure, toPublicError } from "../core/errors.js";
 import { getVendor } from "../core/registry.js";
-import { accountsOf, getAccount, readHubId } from "../core/session.js";
+import { accountsOf, getAccount, markAccountStatus, readHubId } from "../core/session.js";
 import type { DeviceSummary, LiveItem } from "../providers/types.js";
 
 export const devicesRouter = Router();
@@ -25,9 +25,14 @@ devicesRouter.get("/", async (req, res) => {
     try {
       const provider = getVendor(session.vendorId);
       const rows = await provider.listDevices(session);
+      markAccountStatus(hub.hubId, accountId, { state: "ok", checkedAt: Date.now() });
       for (const row of rows) devices.push({ ...row, accountId });
     } catch (error) {
-      warnings.push(`${session.vendorId}: ${error instanceof Error ? error.message : "设备列表失败"}`);
+      const message = error instanceof Error ? error.message : "设备列表失败";
+      if (isAuthFailure(error)) {
+        markAccountStatus(hub.hubId, accountId, { state: "expired", checkedAt: Date.now(), message });
+      }
+      warnings.push(`${session.vendorId}: ${message}`);
     }
   }));
   if (!devices.length && warnings.length) {

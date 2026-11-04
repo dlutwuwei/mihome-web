@@ -88,6 +88,8 @@ export interface PendingAuth {
   password?: string;
   captchaUrl?: string;
   notificationUrl?: string;
+  /** 重新登录时替换的账号 id。 */
+  replaceAccountId?: string;
   createdAt: number;
 }
 
@@ -117,6 +119,8 @@ export interface VendorProvider {
   getCaptchaImage?(pending: PendingAuth): Promise<BinaryImage>;
   /** 拉取登录二维码图片。 */
   getQrImage?(pending: PendingAuth): Promise<BinaryImage>;
+  /** 轻量确认登录态是否仍然有效；登录失效时抛出 AppError。 */
+  checkSession?(session: VendorSession): Promise<void>;
   /** 拉取该账号下的设备列表，并写入 session.devices。 */
   listDevices(session: VendorSession): Promise<DeviceSummary[]>;
   /** 读取设备当前工作状态，按 did 返回展示文案。 */

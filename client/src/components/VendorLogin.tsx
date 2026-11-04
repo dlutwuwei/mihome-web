@@ -22,18 +22,39 @@ export function VendorLogin({
   vendors,
   onSuccess,
   onCancel,
+  initialVendorId,
+  initialRegion,
+  initialUsername = "",
+  replaceAccountId = "",
+  heading = "添加厂商",
+  note = "登录对应厂商账号。已添加的账号保持不变。",
+  vendorLocked = false,
 }: {
   vendors: VendorInfo[];
   onSuccess: (accounts: Account[]) => void;
   onCancel: () => void;
+  initialVendorId?: string;
+  initialRegion?: string;
+  initialUsername?: string;
+  replaceAccountId?: string;
+  heading?: string;
+  note?: string;
+  vendorLocked?: boolean;
 }) {
-  const [vendorId, setVendorId] = useState(vendors[0]?.id || "xiaomi");
+  const startVendor = useMemo(
+    () => vendors.find((item) => item.id === initialVendorId) || vendors[0],
+    [vendors, initialVendorId],
+  );
+  const [vendorId, setVendorId] = useState(startVendor?.id || "xiaomi");
   const vendor = useMemo(() => vendors.find((item) => item.id === vendorId) || vendors[0], [vendors, vendorId]);
   const regions = vendor?.regions || [];
   const authModes = vendor?.authModes || ["password"];
-  const [mode, setMode] = useState<LoginMode>(firstMode(authModes));
-  const [region, setRegion] = useState(regions[0]?.id || "cn");
-  const [username, setUsername] = useState("");
+  const [mode, setMode] = useState<LoginMode>(() => firstMode(vendor?.authModes || ["password"]));
+  const [region, setRegion] = useState(() => {
+    const list = vendor?.regions || [];
+    return initialRegion && list.some((item) => item.id === initialRegion) ? initialRegion : list[0]?.id || "cn";
+  });
+  const [username, setUsername] = useState(initialUsername);
   const [password, setPassword] = useState("");
   const [captcha, setCaptcha] = useState("");
   const [emailCode, setEmailCode] = useState("");
@@ -46,7 +67,7 @@ export function VendorLogin({
   const smsLogin = mode === "sms";
 
   useEffect(() => {
-    setRegion(regions[0]?.id || "cn");
+    setRegion((current) => (regions.some((item) => item.id === current) ? current : regions[0]?.id || "cn"));
     setMode(firstMode(authModes));
     setPendingId("");
     setNeedCaptcha(false);
@@ -137,13 +158,13 @@ export function VendorLogin({
       if (mode === "qr") {
         const data = await api<{ pendingId: string }>("/api/login/qr", {
           method: "POST",
-          body: { vendor: vendorValue, region: regionValue },
+          body: { vendor: vendorValue, region: regionValue, accountId: replaceAccountId },
         });
         setPendingId(data.pendingId);
         return;
       }
       if (needEmail) {
-        const verified = await api<PasswordLogin>("/api/login/email", { method: "POST", body: { pendingId: pendingValue, code: emailCodeValue } });
+        const verified = await api<PasswordLogin>("/api/login/email", { method: "POST", body: { pendingId: pendingValue, code: emailCodeValue, accountId: replaceAccountId } });
         if (isOkSession(verified)) onSuccess(verified.accounts);
         return;
       }
@@ -157,6 +178,7 @@ export function VendorLogin({
           captcha: captchaValue,
           pendingId: pendingValue,
           method: mode === "sms" ? "sms" : undefined,
+          accountId: replaceAccountId,
         },
       });
       if ("needCaptcha" in data) {
@@ -183,11 +205,11 @@ export function VendorLogin({
     <main className="login embed">
       <form className="card" onSubmit={submit}>
         <div className="brand">SMART HOME</div>
-        <h1>添加厂商</h1>
-        <p className="sub">登录对应厂商账号。已添加的账号保持不变。</p>
+        <h1>{heading}</h1>
+        <p className="sub">{note}</p>
         <label>
           厂商
-          <select value={vendorId} onChange={(event) => setVendorId(event.target.value)}>
+          <select value={vendorId} disabled={vendorLocked} onChange={(event) => setVendorId(event.target.value)}>
             {vendors.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>

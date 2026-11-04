@@ -221,8 +221,22 @@ function summaryOf(raw: Record<string, unknown>, room: string, sessionKey: Buffe
   };
 }
 
+function requireToken(state: ReturnType<typeof sessionState>) {
+  if (!state.accessToken) {
+    throw new AppError("登录凭证已缺失，请重新登录", "AUTH", 401);
+  }
+}
+
+/** 轻量请求家庭列表，确认登录态仍被接受。 */
+export async function checkSession(session: VendorSession) {
+  const state = sessionState(session.state);
+  requireToken(state);
+  await mas(state, "/v1/homegroup/list/get", {});
+}
+
 export async function listDevices(session: VendorSession) {
   const state = sessionState(session.state);
+  requireToken(state);
   const homes = await mas(state, "/v1/homegroup/list/get", {});
   const homeList = (homes.homeList || homes.homegroupList || []) as Array<Record<string, unknown>>;
   const devices: DeviceSummary[] = [];
