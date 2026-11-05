@@ -8,10 +8,23 @@ import type { DeviceSummary, LiveItem } from "../providers/types.js";
 
 export const devicesRouter = Router();
 
+function logDevice(req: import("express").Request, status: number, message: string) {
+  console.error("[devices]", req.method, req.originalUrl, status, message, "cookie", Boolean(req.headers.cookie));
+}
+
+function fail(req: import("express").Request, res: import("express").Response, error: unknown) {
+  const status = error instanceof AppError ? error.status : 502;
+  const message = error instanceof Error ? error.message : "请求失败";
+  logDevice(req, status, message);
+  if (!(error instanceof AppError) && error instanceof Error && error.stack) console.error(error.stack);
+  res.status(status).json(toPublicError(error));
+}
+
 function requireHub(req: import("express").Request, res: import("express").Response) {
   const hubId = readHubId(req.headers.cookie);
   const accounts = accountsOf(hubId);
   if (!accounts.length) {
+    logDevice(req, 401, hubId ? "登录态无账号" : "未登录");
     res.status(401).json({ error: "未登录" });
     return null;
   }
@@ -65,14 +78,17 @@ devicesRouter.get("/:accountId/:did", async (req, res) => {
   const hub = requireHub(req, res);
   if (!hub) return;
   const session = getAccount(hub.hubId, req.params.accountId);
-  if (!session) return res.status(404).json({ error: "账号不存在" });
+  if (!session) {
+    logDevice(req, 404, "账号不存在");
+    return res.status(404).json({ error: "账号不存在" });
+  }
   try {
     const provider = getVendor(session.vendorId);
     const detail = await provider.getDeviceDetail(session, req.params.did);
     detail.device.accountId = req.params.accountId;
     res.json(detail);
   } catch (error) {
-    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+    fail(req, res, error);
   }
 });
 
@@ -87,7 +103,7 @@ devicesRouter.post("/:accountId/:did/prop", async (req, res) => {
     await provider.setProperty(session, req.params.did, Number(siid), Number(piid), value, id ? String(id) : undefined);
     res.json({ ok: true });
   } catch (error) {
-    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+    fail(req, res, error);
   }
 });
 
@@ -104,8 +120,8 @@ devicesRouter.post("/:accountId/:did/print", async (req, res) => {
     await printFile(session, req.params.did, file.body, file.mime, file.filename, file.fields);
     res.json({ ok: true });
   } catch (error) {
-    console.error("[print]", req.params.did, filename, error instanceof Error ? error.stack || error.message : error);
-    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+    if (filename) console.error("[devices] print", filename);
+    fail(req, res, error);
   }
 });
 
@@ -172,6 +188,6 @@ devicesRouter.post("/:accountId/:did/action", async (req, res) => {
     await provider.runAction(session, req.params.did, Number(siid), Number(aiid));
     res.json({ ok: true });
   } catch (error) {
-    res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));
+    fail(req, res, error);
   }
 });

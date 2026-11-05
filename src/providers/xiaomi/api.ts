@@ -30,7 +30,10 @@ export async function apiCall(state: XiaomiAuthState, path: string, data: unknow
     body: new URLSearchParams(fields).toString(),
   });
   const text = await response.text();
-  if (!response.ok) throw new AppError(`云端 HTTP ${response.status}`, response.status, 502);
+  if (!response.ok) {
+    console.error("[xiaomi]", path, response.status, text.slice(0, 300));
+    throw new AppError(`云端 HTTP ${response.status}`, response.status, 502);
+  }
   let decoded: string;
   try {
     decoded = decryptRc4(signedNonce(state.ssecurity, fields._nonce), text);
@@ -44,6 +47,7 @@ export async function apiCall(state: XiaomiAuthState, path: string, data: unknow
     result?: unknown;
   };
   if (body.code !== 0) {
+    console.error("[xiaomi]", path, body.code, body.message || body.desc || "");
     throw new AppError(body.message || body.desc || `云端错误 ${body.code}`, body.code, 502);
   }
   return body.result;

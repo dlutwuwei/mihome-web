@@ -33,7 +33,10 @@ export async function mas(state: MideaAuthState, endpoint: string, data: Record<
     body,
   });
   const text = await response.text();
-  if (!response.ok) throw new AppError(`云端 HTTP ${response.status}`, response.status, 502);
+  if (!response.ok) {
+    console.error("[midea]", endpoint, response.status, text.slice(0, 300));
+    throw new AppError(`云端 HTTP ${response.status}`, response.status, 502);
+  }
   let parsed: ReturnType<typeof parseBody>;
   try {
     parsed = parseBody(text);
@@ -41,6 +44,7 @@ export async function mas(state: MideaAuthState, endpoint: string, data: Record<
     throw new AppError("云端响应无法解析", "PARSE", 502);
   }
   if (Number(parsed.code) !== 0) {
+    console.error("[midea]", endpoint, parsed.code, parsed.msg || parsed.message || "");
     throw new AppError(parsed.msg || parsed.message || `云端错误 ${parsed.code}`, parsed.code ?? "CLOUD", 400);
   }
   return (parsed.data ?? {}) as Record<string, unknown>;

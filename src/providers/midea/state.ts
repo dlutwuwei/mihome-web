@@ -37,5 +37,7 @@ export function hostOf(region: string) {
 }
 
 export function asMidea(state: unknown) {
-  return state as MideaAuthState;
+  const row = state as MideaAuthState & { fields?: Map<string, Record<string, unknown>> };
+  if (!(row.raw instanceof Map)) row.raw = row.fields instanceof Map ? row.fields : new Map();
+  return row;
 }
