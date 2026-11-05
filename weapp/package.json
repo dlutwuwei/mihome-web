@@ -1,0 +1,13 @@
+{
+  "name": "mihome-smart-home-weapp",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node tests/store.test.js",
+    "check": "node tests/check.js"
+  },
+  "dependencies": {
+    "mobx-miniprogram": "^6.12.3",
+    "mobx-miniprogram-bindings": "^7.0.1"
+  }
+}

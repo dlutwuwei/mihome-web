@@ -1,0 +1,20 @@
+<view class="gauge {{disabled ? 'gauge-disabled' : ''}}">
+  <canvas
+    id="level-gauge"
+    type="2d"
+    class="gauge-canvas"
+    disable-scroll
+    bindtouchstart="onTouchStart"
+    catchtouchmove="onTouchMove"
+    bindtouchend="onTouchEnd"
+  ></canvas>
+  <view class="gauge-value">
+    <text class="gauge-number">{{displayValue}}</text>
+    <text class="gauge-label">{{label}}</text>
+    <text class="gauge-hint">{{disabled ? '暂不可控制' : '拖动圆环调节'}}</text>
+  </view>
+  <view class="gauge-range">
+    <text>{{min}}</text>
+    <text>{{max}}</text>
+  </view>
+</view>

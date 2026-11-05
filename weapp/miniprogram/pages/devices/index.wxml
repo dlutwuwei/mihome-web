@@ -1,0 +1,96 @@
+<view class="page devices-page">
+  <view class="ambient ambient-top"></view>
+  <view class="ambient ambient-bottom"></view>
+  <view class="page-content">
+    <view class="page-heading">
+      <view>
+        <text class="eyebrow">CONNECTED HOME</text>
+        <text class="page-title">Smart Home</text>
+        <text class="page-subtitle">让每一处空间，都恰到好处</text>
+      </view>
+      <button class="icon-button" bindtap="onSettingsTap" aria-label="打开服务接入设置">API</button>
+    </view>
+
+    <view class="home-hero">
+      <view class="hero-orb hero-orb-one"></view>
+      <view class="hero-orb hero-orb-two"></view>
+      <view class="hero-copy">
+        <text class="hero-kicker">我的家庭</text>
+        <text class="hero-title">{{configured ? (info ? info.keyName : '正在连接') : '等待接入'}}</text>
+        <view class="hero-stats">
+          <view class="hero-stat">
+            <text class="hero-number">{{devices.length}}</text>
+            <text class="hero-label">全部设备</text>
+          </view>
+          <view class="hero-stat">
+            <text class="hero-number">{{onlineCount}}</text>
+            <text class="hero-label">当前在线</text>
+          </view>
+          <view class="hero-stat">
+            <text class="hero-number">{{accountCount}}</text>
+            <text class="hero-label">家庭账号</text>
+          </view>
+        </view>
+      </view>
+      <view class="hero-illustration">
+        <view class="home-symbol">HOME</view>
+        <view class="home-platform"></view>
+      </view>
+    </view>
+
+    <view wx:if="{{error}}" class="error-banner" bindtap="onRetryTap">{{error}}，轻点重试</view>
+    <view wx:if="{{warning}}" class="warning-banner">{{warning}}</view>
+
+    <view wx:if="{{configured && devices.length}}" class="section room-section">
+      <view class="section-heading">
+        <text class="section-title">房间</text>
+        <text class="section-note">{{filteredDevices.length}} 台设备</text>
+      </view>
+      <scroll-view class="room-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="room-list">
+          <button
+            wx:for="{{rooms}}"
+            wx:key="name"
+            class="pill room-pill {{selectedRoom === item.name ? 'pill-active' : ''}}"
+            data-room="{{item.name}}"
+            bindtap="onRoomTap"
+          >
+            {{item.name}} · {{item.count}}
+          </button>
+        </view>
+      </scroll-view>
+    </view>
+
+    <view wx:if="{{loading && !devices.length}}" class="device-grid section">
+      <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="skeleton device-skeleton"></view>
+    </view>
+
+    <view wx:elif="{{!configured}}" class="card empty section">
+      <view class="empty-symbol">API</view>
+      <text class="empty-title">连接你的智能家庭</text>
+      <text class="empty-copy">配置服务地址与 API Key，即可在这里查看并控制已分发的设备。</text>
+      <button class="button empty-action" bindtap="onSettingsTap">开始接入</button>
+    </view>
+
+    <view wx:elif="{{!loading && !filteredDevices.length}}" class="card empty section">
+      <view class="empty-symbol">HOME</view>
+      <text class="empty-title">{{devices.length ? '这个房间还没有设备' : '暂无可用设备'}}</text>
+      <text class="empty-copy">{{devices.length ? '切换到其他房间看看。' : '请确认服务端账号已登录，并已为设备分发权限。'}}</text>
+    </view>
+
+    <view wx:else class="section devices-section">
+      <view class="section-heading">
+        <text class="section-title">设备</text>
+        <text class="section-note">轻点卡片进入控制</text>
+      </view>
+      <view class="device-grid">
+        <device-card
+          wx:for="{{filteredDevices}}"
+          wx:key="key"
+          device="{{item}}"
+          bind:select="onDeviceSelect"
+        />
+      </view>
+    </view>
+  </view>
+</view>

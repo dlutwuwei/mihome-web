@@ -1,0 +1,146 @@
+.device-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 326rpx;
+  padding: 26rpx;
+  overflow: hidden;
+  border-radius: 34rpx;
+  text-align: left;
+  box-shadow: 0 16rpx 34rpx rgba(55, 59, 102, 0.07);
+  transition: transform 150ms ease, opacity 150ms ease;
+}
+
+.device-card-hover {
+  transform: translateY(-5rpx) scale(0.985);
+}
+
+.accent-0 { background: #e5e8ff; color: #4f56ac; }
+.accent-1 { background: #ffe4dc; color: #a85d4a; }
+.accent-2 { background: #fff2c9; color: #8b7135; }
+.accent-3 { background: #dcefea; color: #437d6d; }
+
+.device-offline {
+  filter: saturate(0.35);
+  opacity: 0.7;
+}
+
+.card-orbit {
+  position: absolute;
+  border: 2rpx solid currentColor;
+  border-radius: 50%;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.orbit-one {
+  right: -74rpx;
+  bottom: -54rpx;
+  width: 240rpx;
+  height: 240rpx;
+}
+
+.orbit-two {
+  right: -18rpx;
+  bottom: 2rpx;
+  width: 128rpx;
+  height: 128rpx;
+}
+
+.device-card-top,
+.device-card-bottom {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.device-glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70rpx;
+  height: 70rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 255, 255, 0.65);
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  font-size: 20rpx;
+  opacity: 0.72;
+}
+
+.status-dot {
+  width: 10rpx;
+  height: 10rpx;
+  margin-right: 8rpx;
+  border-radius: 50%;
+  background: #a8abb7;
+}
+
+.status-online { background: #4faa8d; }
+
+.device-copy {
+  position: relative;
+  z-index: 1;
+  margin-top: 34rpx;
+}
+
+.device-name {
+  display: block;
+  overflow: hidden;
+  color: #303345;
+  font-size: 30rpx;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-room {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  opacity: 0.68;
+}
+
+.device-card-bottom {
+  align-items: flex-end;
+  margin-top: auto;
+  padding-top: 28rpx;
+}
+
+.device-live {
+  display: block;
+  max-width: 210rpx;
+  overflow: hidden;
+  color: #303345;
+  font-size: 25rpx;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-model {
+  display: block;
+  max-width: 210rpx;
+  margin-top: 6rpx;
+  overflow: hidden;
+  font-size: 18rpx;
+  opacity: 0.54;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-arrow {
+  color: currentColor;
+  font-size: 42rpx;
+  font-weight: 300;
+  line-height: 1;
+  opacity: 0.5;
+}

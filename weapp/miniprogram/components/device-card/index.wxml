@@ -1,0 +1,27 @@
+<button
+  class="device-card accent-{{device.accent}} {{device.online ? '' : 'device-offline'}}"
+  hover-class="device-card-hover"
+  bindtap="onTap"
+  aria-label="打开{{device.name}}控制面板"
+>
+  <view class="card-orbit orbit-one"></view>
+  <view class="card-orbit orbit-two"></view>
+  <view class="device-card-top">
+    <view class="device-glyph">{{device.glyph}}</view>
+    <view class="device-status">
+      <text class="status-dot {{device.online ? 'status-online' : ''}}"></text>
+      <text>{{device.statusText}}</text>
+    </view>
+  </view>
+  <view class="device-copy">
+    <text class="device-name">{{device.name}}</text>
+    <text class="device-room">{{device.room || '未分组'}}</text>
+  </view>
+  <view class="device-card-bottom">
+    <view>
+      <text class="device-live">{{device.primaryLive}}</text>
+      <text class="device-model">{{device.model}}</text>
+    </view>
+    <view class="device-arrow">›</view>
+  </view>
+</button>

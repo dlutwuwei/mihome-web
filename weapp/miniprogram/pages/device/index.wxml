@@ -1,0 +1,177 @@
+<view class="page device-page">
+  <view class="ambient ambient-top"></view>
+  <view class="ambient ambient-bottom"></view>
+  <view class="page-content">
+    <view wx:if="{{detailLoading && !detail}}" class="detail-loading">
+      <view class="skeleton loading-hero"></view>
+      <view class="skeleton loading-section"></view>
+    </view>
+
+    <view wx:elif="{{detailError && !detail}}" class="card empty empty-detail">
+      <view class="empty-symbol">LINK</view>
+      <text class="empty-title">暂时无法打开设备</text>
+      <text class="empty-copy">{{detailError}}</text>
+      <button class="button empty-retry" bindtap="onRetryTap">重新加载</button>
+    </view>
+
+    <block wx:elif="{{detail}}">
+      <view class="device-heading">
+        <view class="detail-glyph">{{detail.device.glyph}}</view>
+        <view class="detail-heading-copy">
+          <text class="detail-name">{{detail.device.name}}</text>
+          <text class="detail-model">{{detail.device.room || '未分组'}} · {{detail.device.model}}</text>
+        </view>
+        <view class="detail-status {{detail.device.online ? 'detail-status-online' : ''}}">
+          <text class="dot {{detail.device.online ? 'dot-online' : ''}}"></text>
+          {{detail.device.statusText}}
+        </view>
+      </view>
+
+      <view wx:if="{{detailError}}" class="error-banner detail-error">{{detailError}}</view>
+      <view wx:if="{{!canControl}}" class="permission-banner">当前 Key 为只读权限。添加 devices:control 后可控制设备。</view>
+      <view wx:elif="{{!detail.device.online}}" class="permission-banner">设备当前离线，控制功能暂不可用。</view>
+
+      <view class="card gauge-card">
+        <block wx:if="{{featuredProperty}}">
+          <view class="gauge-card-heading">
+            <text class="section-title">{{featuredProperty.name}}</text>
+            <text class="section-note">{{busyKey === featuredProperty.key ? '正在写入' : '实时调节'}}</text>
+          </view>
+          <gauge-control
+            value="{{featuredProperty.value}}"
+            display-value="{{featuredProperty.displayValue}}"
+            label="{{featuredProperty.name}}"
+            min="{{featuredProperty.rangeMin}}"
+            max="{{featuredProperty.rangeMax}}"
+            step="{{featuredProperty.rangeStep}}"
+            disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+            bind:changing="onGaugeChanging"
+            bind:change="onGaugeChange"
+          />
+          <view class="step-control">
+            <button
+              class="step-button"
+              data-direction="-1"
+              disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+              bindtap="onStepTap"
+              aria-label="减少{{featuredProperty.name}}"
+            >−</button>
+            <text class="step-caption">精确调节</text>
+            <button
+              class="step-button"
+              data-direction="1"
+              disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+              bindtap="onStepTap"
+              aria-label="增加{{featuredProperty.name}}"
+            >＋</button>
+          </view>
+        </block>
+        <view wx:else class="device-visual">
+          <view class="visual-orbit visual-orbit-one"></view>
+          <view class="visual-orbit visual-orbit-two"></view>
+          <view class="visual-glyph">{{detail.device.glyph}}</view>
+          <text class="visual-title">{{detail.device.primaryLive}}</text>
+          <text class="visual-copy">设备已就绪，可使用下方控制项</text>
+        </view>
+      </view>
+
+      <view wx:if="{{detail.device.live.length}}" class="live-strip">
+        <view wx:for="{{detail.device.live}}" wx:key="name" class="live-item">
+          <text class="live-text">{{item.text}}</text>
+          <text class="live-name">{{item.name}}</text>
+        </view>
+      </view>
+
+      <view
+        wx:for="{{services}}"
+        wx:for-item="service"
+        wx:key="key"
+        wx:if="{{service.properties.length || service.actions.length}}"
+        class="card service-card section"
+      >
+        <view class="service-heading">
+          <text class="section-title">{{service.name}}</text>
+          <text class="section-note">SERVICE {{service.siid}}</text>
+        </view>
+
+        <view class="property-list">
+          <block wx:for="{{service.properties}}" wx:for-item="prop" wx:key="key">
+            <view wx:if="{{!prop.featured}}" class="property-row">
+              <view class="property-heading">
+                <view>
+                  <text class="property-name">{{prop.name}}</text>
+                  <text class="property-meta">{{prop.writable ? '可调节' : '当前读数'}}</text>
+                </view>
+                <text wx:if="{{prop.kind !== 'switch' || !prop.writable}}" class="property-value">{{prop.displayValue}}</text>
+                <switch
+                  wx:else
+                  checked="{{prop.value}}"
+                  color="#626dcc"
+                  data-key="{{prop.key}}"
+                  disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+                  bindchange="onSwitchChange"
+                />
+              </view>
+
+              <block wx:if="{{prop.writable}}">
+                <view wx:if="{{prop.kind === 'segmented' || prop.kind === 'select'}}" class="option-list">
+                  <button
+                    wx:for="{{prop.options}}"
+                    wx:for-item="option"
+                    wx:key="key"
+                    class="pill option-pill {{option.selected ? 'pill-active' : ''}}"
+                    data-key="{{prop.key}}"
+                    data-value="{{option.value}}"
+                    disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+                    bindtap="onOptionTap"
+                  >{{option.name}}</button>
+                </view>
+
+                <slider
+                  wx:elif="{{prop.kind === 'slider' && prop.hasRange}}"
+                  class="property-slider"
+                  value="{{prop.value}}"
+                  min="{{prop.rangeMin}}"
+                  max="{{prop.rangeMax}}"
+                  step="{{prop.rangeStep}}"
+                  activeColor="#7684e6"
+                  backgroundColor="#e8eaf2"
+                  block-color="#626dcc"
+                  block-size="22"
+                  data-key="{{prop.key}}"
+                  disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+                  bindchanging="onSliderChanging"
+                  bindchange="onSliderChange"
+                />
+
+                <input
+                  wx:elif="{{prop.kind === 'number' || prop.kind === 'text'}}"
+                  class="property-input"
+                  type="{{prop.kind === 'number' ? 'number' : 'text'}}"
+                  value="{{prop.value}}"
+                  data-key="{{prop.key}}"
+                  data-numeric="{{prop.kind === 'number'}}"
+                  disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+                  bindblur="onInputBlur"
+                />
+              </block>
+            </view>
+          </block>
+        </view>
+
+        <view wx:if="{{service.actions.length}}" class="action-list">
+          <button
+            wx:for="{{service.actions}}"
+            wx:for-item="action"
+            wx:key="key"
+            class="action-button {{actionBusyKey === action.key ? 'button-loading' : ''}}"
+            data-key="{{action.key}}"
+            loading="{{actionBusyKey === action.key}}"
+            disabled="{{!canControl || !detail.device.online || !!actionBusyKey}}"
+            bindtap="onActionTap"
+          >{{action.name}}</button>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

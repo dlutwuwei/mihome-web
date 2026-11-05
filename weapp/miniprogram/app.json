@@ -1,0 +1,33 @@
+{
+  "pages": [
+    "pages/devices/index",
+    "pages/device/index",
+    "pages/settings/index"
+  ],
+  "window": {
+    "backgroundColor": "#f4f6fb",
+    "backgroundTextStyle": "dark",
+    "navigationBarBackgroundColor": "#f4f6fb",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "Smart Home"
+  },
+  "tabBar": {
+    "color": "#969bad",
+    "selectedColor": "#626dcc",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/devices/index",
+        "text": "设备"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "接入"
+      }
+    ]
+  },
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents",
+  "sitemapLocation": "sitemap.json"
+}

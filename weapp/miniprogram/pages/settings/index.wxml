@@ -1,0 +1,113 @@
+<view class="page settings-page">
+  <view class="ambient ambient-top"></view>
+  <view class="ambient ambient-bottom"></view>
+  <view class="page-content">
+    <view class="page-heading">
+      <view>
+        <text class="eyebrow">API CONNECTION</text>
+        <text class="page-title">服务接入</text>
+        <text class="page-subtitle">一个 Key，连接你的全部智能设备</text>
+      </view>
+    </view>
+
+    <view class="connection-hero">
+      <view class="connection-icon">API</view>
+      <view class="connection-copy">
+        <text class="connection-title">{{info ? '服务已连接' : '开放服务连接'}}</text>
+        <text class="connection-subtitle">{{info ? info.keyName : '通过 Bearer API Key 安全访问'}}</text>
+      </view>
+      <view class="connection-dot {{info ? 'connection-dot-active' : ''}}"></view>
+    </view>
+
+    <view class="card settings-card section">
+      <view class="field">
+        <text class="field-label">服务地址</text>
+        <input
+          class="field-input"
+          value="{{baseUrl}}"
+          placeholder="http://127.0.0.1:8787"
+          placeholder-class="field-placeholder"
+          auto-correct="false"
+          bindinput="onBaseUrlInput"
+        />
+        <text class="field-note">填写服务源站即可，无需添加 /api/open</text>
+      </view>
+      <view class="field-divider"></view>
+      <view class="field">
+        <text class="field-label">API Key</text>
+        <view class="key-input-row">
+          <input
+            class="field-input key-input"
+            value="{{apiKey}}"
+            password="{{!showKey}}"
+            placeholder="mihome_..."
+            placeholder-class="field-placeholder"
+            bindinput="onApiKeyInput"
+          />
+          <button class="key-visibility" bindtap="onToggleKey">{{showKey ? '隐藏' : '显示'}}</button>
+        </view>
+        <text class="field-note">Key 仅保存在当前微信设备，用于请求鉴权</text>
+      </view>
+      <button
+        class="button connect-button {{connecting ? 'button-loading' : ''}}"
+        disabled="{{connecting}}"
+        loading="{{connecting}}"
+        bindtap="onConnectTap"
+      >{{connecting ? '正在连接' : '保存并连接'}}</button>
+      <view wx:if="{{error}}" class="settings-error">{{error}}</view>
+    </view>
+
+    <view wx:if="{{info}}" class="card access-card section">
+      <view class="section-heading access-heading">
+        <text class="section-title">当前访问权限</text>
+        <text class="section-note">{{accountCount}} 个账号</text>
+      </view>
+      <view class="scope-list">
+        <view wx:for="{{info.scopes}}" wx:key="*this" class="scope-pill">{{item}}</view>
+      </view>
+      <view class="access-meta">
+        <text>Key ID</text>
+        <text>{{info.keyId}}</text>
+      </view>
+      <button wx:if="{{!confirmingClear}}" class="clear-entry" bindtap="onClearTap">清除此设备上的接入信息</button>
+      <view wx:else class="clear-confirm">
+        <text class="clear-confirm-text">确认清除？服务端 Key 不会被撤销。</text>
+        <view class="clear-actions">
+          <button class="pill" bindtap="onCancelClear">取消</button>
+          <button class="pill clear-confirm-button" bindtap="onConfirmClear">确认清除</button>
+        </view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-heading">
+        <text class="section-title">权限说明</text>
+        <text class="section-note">按需授权</text>
+      </view>
+      <view class="permission-grid">
+        <view class="permission-card permission-read">
+          <text class="permission-name">读取设备</text>
+          <text class="permission-scope">devices:read</text>
+          <text class="permission-copy">设备列表、房间与属性详情</text>
+        </view>
+        <view class="permission-card permission-live">
+          <text class="permission-name">实时状态</text>
+          <text class="permission-scope">devices:live</text>
+          <text class="permission-copy">温度、湿度等实时读数</text>
+        </view>
+        <view class="permission-card permission-control">
+          <text class="permission-name">设备控制</text>
+          <text class="permission-scope">devices:control</text>
+          <text class="permission-copy">调节属性、开关与执行动作</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="card guide-card section">
+      <text class="guide-title">接入提示</text>
+      <text class="guide-copy">开发者工具可使用本机服务调试。真机发布时，请使用 HTTPS 服务，并在微信公众平台配置 request 合法域名。</text>
+      <view class="guide-code">Authorization: Bearer &lt;API Key&gt;</view>
+      <text class="guide-copy">请在网页管理端创建 Key，推荐仅勾选小程序实际需要的权限。请勿把 Key 写入代码仓库或公开页面。</text>
+    </view>
+  </view>
+</view>

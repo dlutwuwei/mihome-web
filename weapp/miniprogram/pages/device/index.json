@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "设备控制",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "gauge-control": "/components/gauge-control/index"
+  }
+}
