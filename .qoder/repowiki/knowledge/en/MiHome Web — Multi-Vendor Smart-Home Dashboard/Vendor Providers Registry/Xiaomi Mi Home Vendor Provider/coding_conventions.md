@@ -1,0 +1,5 @@
+- Errors are raised as `AppError` from `../../core/errors.js` with a human message, a stable error code string, and an HTTP-like status number.
+- Cross-layer session state is passed as opaque `unknown` and cast through `asXiaomi()` / `sessionState()` rather than typed directly at call sites.
+- MIoT cloud payloads are built by calling `encParams(url, method, signNonce, rawNonce, params, ssecurity)` which appends `rc4_hash__`, `signature`, and `ssecurity` before RC4-encrypting every field.
+- All outbound HTTP requests carry a generated Xiaomi-app `User-Agent` string (`com.xiaomi.mihome APPV/10.5.201`) and set `locale=zh_CN` / `timezone=GMT+08:00` cookies.
+- Device capabilities are derived dynamically from `miot-spec.org` JSON specs and translated into the generic `VendorField`/`VendorAction` shape via `fieldsFromSpec` instead of being hard-coded.

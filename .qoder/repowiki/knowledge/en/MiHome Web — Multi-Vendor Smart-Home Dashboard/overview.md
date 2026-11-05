@@ -1,0 +1,1 @@
+Single Node/Express application that boots vendor adapters, wires Express routers to a shared core, and serves the React dashboard plus an open API for device discovery and control.

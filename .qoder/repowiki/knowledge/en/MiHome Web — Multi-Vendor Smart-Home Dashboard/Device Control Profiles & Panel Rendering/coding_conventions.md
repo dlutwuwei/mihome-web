@@ -1,0 +1,5 @@
+- Profile matching uses a tier constant (`did=40 > model=30 > specType=20 > vendor=10`) combined with a simple glob-to-RegExp helper so patterns like `"*"` and literal names share the same matching path.
+- Bidirectional value conversion goes through named `Codec` objects with `decode`/`encode` functions, selected by a string key from a central registry rather than inline lambdas.
+- UI widget kind inference follows a fixed priority chain: declared `rule.kind` → vendor `field.kind` → options shape → boolean check → range/step → raw type, with non-writable fields forced to `text`.
+- Write-back encoders receive the original device value via a `CodecCtx.raw` field so shape-aware codecs can restore the device's native representation (`on`/`off`, `1`/`0`, `true`/`false`).
+- On-disk profile loading wraps every file parse in try/catch and skips malformed entries so a bad config cannot break other devices.

@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: providers/midea_provider
+title: Midea (美的美居) Vendor Provider
+scope:
+    - src/providers/midea/
+source_files: []
+depends_on: []
+related_to: []

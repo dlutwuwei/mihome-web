@@ -1,0 +1,1 @@
+`npm run dev` starts the server with `tsx watch src/index.ts` (default port 8787, host 127.0.0.1); `npm run build:client` rebuilds the React dashboard under `client/`; runtime profiles can be overridden by dropping JSON files into `data/profiles/<vendor>/` (configurable via `MIHOME_PROFILE_DIR`).

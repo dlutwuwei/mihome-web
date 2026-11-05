@@ -1,0 +1,5 @@
+- Persistent state modules expose a `restore()` called at module load time and a private `persist()` wrapper around an atomic write-to-temp-then-rename pattern with `mode 0o600`.
+- Module-level file paths are resolved relative to the source file via `path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../data/...")` rather than relying on CWD.
+- Errors are raised as `new AppError(message, code, status)` and surfaced to clients through `toPublicError`, with `isAuthFailure` used to distinguish auth-expired errors from other failures.
+- In-memory stores are typed `Map`s keyed by string identifiers, with public getters returning shallow copies or view objects that exclude sensitive fields (e.g. `secretHash` filtered out by `publicRow`).
+- Vendor capabilities are accessed exclusively through the `registry.ts` `getVendor(id)` lookup, which throws `AppError` with code `VENDOR` for unknown ids.

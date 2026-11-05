@@ -1,8 +1,7 @@
 import { AppError } from "../../core/errors.js";
+import { buildPanel, encodeFieldValue, type VendorAction, type VendorField } from "../../controls/index.js";
 import type {
   DeviceDetail,
-  DeviceProperty,
-  DeviceService,
   DeviceSummary,
   LiveItem,
   VendorSession,
@@ -121,61 +120,61 @@ async function readProps(state: unknown, params: Array<{ did: string; siid: numb
   return values;
 }
 
-function controlsFromSpec(spec: SpecDoc | null): DeviceService[] {
-  const services: DeviceService[] = [];
+/** 从 MIoT URN 取出语义名，urn:miot-spec-v2:property:brightness:00:00 -> brightness */
+function urnTail(type?: string) {
+  const parts = String(type || "").split(":").filter(Boolean);
+  const known = parts.findIndex((part) => ["service", "property", "action"].includes(part));
+  return known >= 0 ? parts[known + 1] || "" : "";
+}
+
+/** spec 已经给了权威约束，这里只把它们翻译成通用字段，不再直接拼面板结构 */
+function fieldsFromSpec(spec: SpecDoc | null) {
+  const fields: VendorField[] = [];
+  const actions: VendorAction[] = [];
   for (const service of spec?.services || []) {
     if (String(service.type || "").includes("device-information")) continue;
-    const properties: DeviceProperty[] = [];
+    const group = labelOf(service.description);
+    const serviceTail = urnTail(service.type) || String(service.iid);
     for (const prop of service.properties || []) {
       const access = prop.access || [];
       if (!access.includes("read")) continue;
-      properties.push({
-        siid: service.iid,
-        piid: prop.iid,
-        name: labelOf(prop.description),
-        format: prop.format || "",
+      const propertyTail = urnTail(prop.type);
+      const range = prop["value-range"];
+      fields.push({
+        key: propertyTail ? `${serviceTail}.${propertyTail}` : `${service.iid}.${prop.iid}`,
+        raw: null,
+        label: labelOf(prop.description),
         writable: access.includes("write"),
-        range: prop["value-range"] || null,
-        list: (prop["value-list"] || []).map((item) => ({
+        kind: prop.format === "bool" ? "switch" : undefined,
+        unit: UNITS[prop.unit || ""] || "",
+        range: range ? [range[0], range[1], range.length > 2 ? range[2] : 1] : null,
+        options: (prop["value-list"] || []).map((item) => ({
           value: item.value,
           name: zh(item.description) || String(item.value),
         })),
+        group,
+        siid: service.iid,
+        piid: prop.iid,
       });
     }
-    const actions = [];
     for (const action of service.actions || []) {
       if ((action.in || []).length) continue;
-      actions.push({ siid: service.iid, aiid: action.iid, name: labelOf(action.description) });
-    }
-    if (properties.length || actions.length) {
-      services.push({
+      actions.push({
+        key: `${service.iid}.${action.iid}`,
+        name: labelOf(action.description),
+        group,
         siid: service.iid,
-        name: labelOf(service.description),
-        properties,
-        actions,
+        aiid: action.iid,
       });
     }
   }
-  return services;
+  return { fields, actions };
 }
 
 function requireToken(auth: ReturnType<typeof sessionState>) {
   if (!auth.userId || !auth.serviceToken) {
     throw new AppError("登录凭证已缺失，请重新登录", "AUTH", 401);
   }
-}
-
-/** 轻量请求云端首页列表，确认登录态仍被接受。 */
-export async function checkSession(session: VendorSession) {
-  const auth = sessionState(session.state);
-  requireToken(auth);
-  await apiCall(auth, "/v2/homeroom/gethome", {
-    fg: true,
-    fetch_share: true,
-    fetch_share_dev: true,
-    limit: 300,
-    app_ver: 7,
-  });
 }
 
 export async function listDevices(session: VendorSession): Promise<DeviceSummary[]> {
@@ -249,28 +248,37 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
   const device = session.devices.get(did);
   if (!device) throw new AppError("请先刷新设备列表", "DEVICE", 404);
   const spec = await specOf(device.specType);
-  const services = controlsFromSpec(spec);
-  const params = [];
-  for (const service of services) {
-    for (const prop of service.properties) params.push({ did: device.did, siid: prop.siid, piid: prop.piid });
-  }
+  const { fields, actions } = fieldsFromSpec(spec);
+  const params = fields.map((field) => ({ did: device.did, siid: field.siid as number, piid: field.piid as number }));
   const values = await readProps(session.state, params);
-  for (const service of services) {
+  for (const field of fields) {
+    const row = values.get(`${device.did}:${field.siid}:${field.piid}`);
+    field.raw = row && row.code === 0 ? row.value : null;
+  }
+  const detail = buildPanel(device, fields, actions);
+  for (const service of detail.services) {
     for (const prop of service.properties) {
       const row = values.get(`${device.did}:${prop.siid}:${prop.piid}`);
-      prop.value = row && row.code === 0 ? row.value : null;
       prop.error = row && row.code !== 0 ? row.code : 0;
     }
   }
-  return { device, services };
+  return detail;
 }
 
-export async function setProperty(session: VendorSession, did: string, siid: number, piid: number, value: unknown) {
+export async function setProperty(
+  session: VendorSession,
+  did: string,
+  siid: number,
+  piid: number,
+  value: unknown,
+  key?: string,
+) {
   const device = session.devices.get(did);
   if (!device) throw new AppError("请先刷新设备列表", "DEVICE", 404);
   const auth = sessionState(session.state);
+  const raw = key ? encodeFieldValue(device, key, value) : value;
   const result = await apiCall(auth, "/miotspec/prop/set", {
-    params: [{ did: device.did, siid, piid, value }],
+    params: [{ did: device.did, siid, piid, value: raw }],
   });
   const row = Array.isArray(result) ? result[0] : result;
   if (row && typeof row === "object" && "code" in row && (row as { code: number }).code) {

@@ -1,7 +1,7 @@
 import { AppError } from "../../core/errors.js";
 import type { LoginOutcome, PendingAuth, VendorSession } from "../types.js";
 import { md5Upper } from "./crypto.js";
-import { follow, http, parseJsonBody } from "./http.js";
+import { CookieJar, follow, http, parseJsonBody } from "./http.js";
 import { asXiaomi, createAuthState, type XiaomiAuthState } from "./state.js";
 
 function toSession(state: XiaomiAuthState): VendorSession {
@@ -219,6 +219,25 @@ export async function pollQr(pending: PendingAuth) {
     throw error;
   } finally {
     clearTimeout(timer);
+  }
+}
+
+const PASSPORT_STATUS = "https://account.xiaomi.com/pass2/user/status";
+
+export async function checkSession(session: VendorSession) {
+  const state = asXiaomi(session.state);
+  if (!state.userId || !state.jar.get("passToken")) {
+    throw new AppError("登录凭证已缺失，请重新登录", "AUTH", 401);
+  }
+  const jar = new CookieJar();
+  for (const [key, value] of state.jar.map) jar.set(key, value);
+  const response = await follow(jar, PASSPORT_STATUS, state.ua);
+  if (response.status >= 500) {
+    throw new AppError("登录状态检查失败", response.status, 502);
+  }
+  const body = parseJsonBody(response.text);
+  if (!body || Number(body.code) !== 0) {
+    throw new AppError("登录已失效，请重新登录", "AUTH", 401);
   }
 }
 

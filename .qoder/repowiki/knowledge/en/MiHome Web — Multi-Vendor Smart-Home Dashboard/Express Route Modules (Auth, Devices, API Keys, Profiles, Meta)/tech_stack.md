@@ -1,0 +1,1 @@
+Express `Router` with TypeScript; multipart parsing via `busboy`; API Key authentication with scope checks and audit logging from `../core/apikey.js`.

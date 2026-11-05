@@ -4,12 +4,6 @@ export const REGIONS: Record<string, { name: string; host: string }> = {
   cn: { name: "中国", host: "https://mp-prod.smartmidea.net" },
 };
 
-export interface MideaField {
-  key: string;
-  boolStyle: "" | "bool" | "onoff" | "zo" | "num";
-  asText: boolean;
-}
-
 export interface MideaAuthState {
   region: string;
   deviceId: string;
@@ -19,7 +13,8 @@ export interface MideaAuthState {
   randomToken: string;
   captchaBody: Buffer | null;
   captchaType: string;
-  fields: Map<string, MideaField[]>;
+  /** 最近一次读到的原始状态，写回时用来还原字段形态 */
+  raw: Map<string, Record<string, unknown>>;
 }
 
 export function createAuthState(region: string, account: string): MideaAuthState {
@@ -33,7 +28,7 @@ export function createAuthState(region: string, account: string): MideaAuthState
     randomToken: "",
     captchaBody: null,
     captchaType: "",
-    fields: new Map(),
+    raw: new Map(),
   };
 }
 

@@ -1,0 +1,5 @@
+- Route handlers wrap provider calls in try/catch and return `res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error))` for error responses.
+- Session-scoped routes authenticate users by reading the `hub` cookie via `readHubId(req.headers.cookie)` and short-circuit with `{ error: "未登录" }` when absent.
+- Vendor-specific behavior is always dispatched through `getVendor(session.vendorId)` rather than calling provider modules directly, keeping routes vendor-agnostic.
+- API Key routes gate access with a `requireScope(req, res, '<scope>')` helper that sets `req.auditMessage` on permission failures before returning 401/403.
+- Pending multi-step flows (captcha, SMS, email 2FA, QR login) are coordinated via `keepPending`/`takePending`/`peekPending`/`putPending`/`dropPending` keyed by a `pendingId`.

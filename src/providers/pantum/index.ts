@@ -1,3 +1,4 @@
+import { buildPanel, type VendorAction, type VendorField } from "../../controls/index.js";
 import { AppError } from "../../core/errors.js";
 import type { DeviceDetail, DeviceSummary, VendorProvider, VendorSession } from "../types.js";
 import { listBindDevices, loginByPhone, printCloudFile, printOptionsFrom, sendLoginCode, type CloudDevice, type CloudSession } from "./cloud.js";
@@ -93,28 +94,13 @@ export const pantumProvider: VendorProvider = {
   },
   async getDeviceDetail(session, did): Promise<DeviceDetail> {
     const device = findDevice(session, did);
-    return {
-      device: summary(device),
-      services: [
-        {
-          siid: 2,
-          name: "打印",
-          properties: [
-            {
-              siid: 2,
-              piid: 1,
-              name: "序列号",
-              format: "string",
-              writable: false,
-              range: null,
-              list: [],
-              value: device.sn,
-            },
-          ],
-          actions: [{ siid: 2, aiid: 1, name: "上传打印" }],
-        },
-      ],
-    };
+    /* 云端只有固定状态字段，展示语义交给 pantum 档案 */
+    const fields: VendorField[] = [
+      { key: "sn", raw: device.sn, writable: false, meta: { model: device.model } },
+      { key: "status", raw: device.online ? "云端在线" : "云端离线", writable: false },
+    ];
+    const actions: VendorAction[] = [{ key: "print", name: "上传打印", group: "打印" }];
+    return buildPanel(summary(device), fields, actions);
   },
   async setProperty() {
     throw new AppError("云端设备不可修改", "PROP", 400);

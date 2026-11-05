@@ -1,0 +1,8 @@
+The module is organized as a thin `index.ts` re-exporting a single `mideaProvider` object conforming to the shared `VendorProvider` interface, delegating each capability to one of four internal modules:
+- `auth.ts` — handles `createPending`, `sendSms`, `loginSms`, `loginPassword`, `getCaptchaImage`; builds the two-step password flow (`/v1/user/login/id/get` then `/mj/user/login`) and SMS flow (`/v6/mj/user/register`).
+- `devices.ts` — implements `checkSession`, `listDevices`, `refreshLive`, `getDeviceDetail`, `setProperty`, `runAction`; walks home/room appliance trees, decrypts SN via session key, and maps raw fields into the generic `VendorField` / panel model.
+- `api.ts` — central HTTP client `mas()` that signs every request with HMAC-SHA256 over `{IOT_KEY + body + random}`, injects `reqId`/`stamp`, attaches `accesstoken`, and normalizes cloud responses (including integer-long JSON repair).
+- `crypto.ts` — pure functions for `sign`, `deviceId`, `encryptPassword`, `encryptIamPassword`, AES-ECB decryption of hex payloads, and `decryptSn` using a fixed key.
+- `state.ts` — defines `MideaAuthState`, the `REGIONS` map (currently only `cn` → `https://mp-prod.smartmidea.net`), and helpers `hostOf` / `asMidea`.
+
+Dependency direction is strictly inward: `index` → `auth`/`devices` → `api` → `crypto`+`state`. The provider never calls the Midea SDK directly; all network traffic goes through `mas()` which targets the `/mas/v5/app/proxy?alias=...` endpoint.

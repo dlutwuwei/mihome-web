@@ -1,0 +1,3 @@
+- Each vendor folder exports a single provider object conforming to the `VendorProvider` interface from `../providers/types.ts`.
+- Vendor-specific auth flows (password, SMS, QR, email 2FA, captcha) are modeled as transitions on `PendingAuth` returning `LoginOutcome` variants rather than throwing exceptions.
+- Device data is normalized into `DeviceSummary`/`DeviceDetail` shapes before being handed to the controls layer, keeping vendor wire formats out of the UI.

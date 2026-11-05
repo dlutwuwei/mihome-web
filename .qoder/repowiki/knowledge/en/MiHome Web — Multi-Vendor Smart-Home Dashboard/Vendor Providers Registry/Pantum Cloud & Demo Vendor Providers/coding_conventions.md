@@ -1,0 +1,5 @@
+- Providers implement the shared `VendorProvider` interface from `../types.js`, exposing fields like `id`, `name`, `authModes`, `listRegions`, `createPending`, `login*`, `checkSession`, `listDevices`, `getDeviceDetail`, `setProperty`, `runAction`.
+- Errors thrown by providers are wrapped as `AppError` with a domain code string (`AUTH`, `DEVICE`, `PROP`, `ACTION`, `PRINT`, `CLOUD`) and an HTTP status, rather than plain `Error`.
+- Per-session data is stored in `session.state` cast to a local interface (e.g. `PantumState`, `DemoState`), accessed through a small `stateOf(session)` helper that also validates required fields before use.
+- User-facing error messages and option labels are written in Chinese, while internal identifiers stay English.
+- Device detail panels are constructed via `buildPanel(summary(device), fields, actions)` from `controls`, keeping field definitions separate from UI rendering.

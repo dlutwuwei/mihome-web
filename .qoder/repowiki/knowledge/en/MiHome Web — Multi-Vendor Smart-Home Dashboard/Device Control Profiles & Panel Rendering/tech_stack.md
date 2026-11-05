@@ -1,0 +1,1 @@
+Node.js `fs`/`path` for on-disk JSON profiles; TypeScript-only module with `.js` import extensions (ESM).

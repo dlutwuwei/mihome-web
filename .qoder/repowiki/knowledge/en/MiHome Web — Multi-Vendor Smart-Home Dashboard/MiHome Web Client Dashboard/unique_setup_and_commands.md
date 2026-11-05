@@ -1,0 +1,1 @@
+Build pipeline runs `tsc --noEmit` before `vite build` to enforce types at build time; dev server is started via `npm run dev` (Vite). The app expects a co-located backend serving `/api/*` under the same origin since all requests use `credentials: 'same-origin'`.

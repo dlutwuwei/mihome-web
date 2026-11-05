@@ -1,0 +1,1 @@
+Vendor-provider implementations for Pantum cloud printing and an in-memory demo light, conforming to the shared VendorProvider interface.

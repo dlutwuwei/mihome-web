@@ -1,0 +1,581 @@
+# Provider System Architecture
+
+<cite>
+**Referenced Files in This Document**
+- [types.ts](file://src/providers/types.ts)
+- [registry.ts](file://src/core/registry.ts)
+- [index.ts](file://src/providers/index.ts)
+- [xiaomi/index.ts](file://src/providers/xiaomi/index.ts)
+- [xiaomi/auth.ts](file://src/providers/xiaomi/auth.ts)
+- [xiaomi/devices.ts](file://src/providers/xiaomi/devices.ts)
+- [midea/index.ts](file://src/providers/midea/index.ts)
+- [midea/auth.ts](file://src/providers/midea/auth.ts)
+- [midea/devices.ts](file://src/providers/midea/devices.ts)
+- [pantum/index.ts](file://src/providers/pantum/index.ts)
+- [pantum/cloud.ts](file://src/providers/pantum/cloud.ts)
+- [errors.ts](file://src/core/errors.ts)
+</cite>
+
+## Table of Contents
+1. [Introduction](#introduction)
+2. [Project Structure](#project-structure)
+3. [Core Components](#core-components)
+4. [Architecture Overview](#architecture-overview)
+5. [Detailed Component Analysis](#detailed-component-analysis)
+6. [Dependency Analysis](#dependency-analysis)
+7. [Performance Considerations](#performance-considerations)
+8. [Troubleshooting Guide](#troubleshooting-guide)
+9. [Conclusion](#conclusion)
+10. [Appendices](#appendices)
+
+## Introduction
+This document explains the provider system architecture that unifies multiple vendor integrations behind a single interface. The system centers on the `VendorProvider` contract, which standardizes authentication, device discovery, live status refresh, device detail inspection, property control, and action execution. A registry pattern enables dynamic registration and discovery of providers at bootstrap time.
+
+The current implementation includes:
+- Xiaomi: password and QR-based login with MIoT spec-driven device models.
+- Midea: SMS and password login with Lua-style device state fields.
+- Pantum: SMS-only cloud printing integration with fixed device metadata and print actions.
+
+The goal is to make vendor-specific logic encapsulated while preserving consistent interfaces for routes, controls, and the frontend.
+
+## Project Structure
+The provider system lives under `src/providers`, with shared types and a core registry under `src/core`. Each vendor has its own folder containing authentication, device operations, and optional helpers.
+
+```mermaid
+graph TB
+subgraph "Core"
+REG["Registry<br/>registerVendor / getVendor / listVendors"]
+ERR["AppError<br/>error model + auth detection"]
+end
+subgraph "Providers"
+IDX["Provider Bootstrap<br/>register xiaomi / midea / pantum / demo"]
+XIA["Xiaomi Provider"]
+MID["Midea Provider"]
+PAN["Pantum Provider"]
+end
+subgraph "Vendor Modules"
+XAUTH["Xiaomi Auth"]
+XDEV["Xiaomi Devices"]
+MAUTH["Midea Auth"]
+MDEV["Midea Devices"]
+PCLOUD["Pantum Cloud API"]
+end
+REG --> IDX
+IDX --> XIA
+IDX --> MID
+IDX --> PAN
+XIA --> XAUTH
+XIA --> XDEV
+MID --> MAUTH
+MID --> MDEV
+PAN --> PCLOUD
+ERR -.-> XIA
+ERR -.-> MID
+ERR -.-> PAN
+```
+
+**Diagram sources**
+- [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+- [index.ts:1-17](file://src/providers/index.ts#L1-L17)
+- [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
+- [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
+- [pantum/index.ts:1-112](file://src/providers/pantum/index.ts#L1-L112)
+- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+
+**Section sources**
+- [index.ts:1-17](file://src/providers/index.ts#L1-L17)
+- [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+
+## Core Components
+The provider system is built around these core abstractions:
+
+- VendorProvider: The unified contract for all vendors. It exposes:
+  - Identity and capabilities: id, name, authModes, listRegions.
+  - Pending authentication context creation: createPending.
+  - Authentication flows: loginPassword, loginSms, sendSms, beginEmail2fa, verifyEmail2fa, beginQr, pollQr, getCaptchaImage, getQrImage.
+  - Session validation: checkSession.
+  - Device lifecycle: listDevices, refreshLive, getDeviceDetail, setProperty, runAction.
+
+- PendingAuth: A transient login context carrying vendorId, region, username/password/captchaUrl/notificationUrl, and vendor-private state.
+
+- VendorSession: A persistent session carrying vendorId, userId, region, a Map of cached devices, and vendor-private state.
+
+- DeviceSummary and DeviceDetail: Unified device models used across vendors. DeviceSummary contains basic identity and online status; DeviceDetail wraps DeviceSummary with services, properties, and actions.
+
+- Registry: A simple in-memory map that registers and retrieves providers by id, and lists available vendors for UI discovery.
+
+These components ensure that routes and controllers can call provider methods without knowing vendor details.
+
+**Section sources**
+- [types.ts:1-144](file://src/providers/types.ts#L1-L144)
+- [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+
+## Architecture Overview
+The runtime flow is:
+1. Application bootstraps providers by calling bootstrapProviders.
+2. Providers register themselves into the registry.
+3. Routes request a provider by id via getVendor.
+4. The selected provider handles authentication, device listing, live refresh, detail retrieval, property writes, and actions.
+5. Errors are normalized through AppError so callers can detect auth failures and present user-friendly messages.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client"
+participant Route as "Route Layer"
+participant Reg as "Registry"
+participant Prov as "VendorProvider"
+participant VendorAPI as "Vendor API"
+Client->>Route : Request device list
+Route->>Reg : getVendor(id)
+Reg-->>Route : VendorProvider instance
+Route->>Prov : listDevices(session)
+Prov->>VendorAPI : Fetch devices
+VendorAPI-->>Prov : Raw device data
+Prov-->>Route : DeviceSummary[]
+Route-->>Client : Response
+```
+
+**Diagram sources**
+- [registry.ts:6-13](file://src/core/registry.ts#L6-L13)
+- [xiaomi/devices.ts:180-223](file://src/providers/xiaomi/devices.ts#L180-L223)
+- [midea/devices.ts:90-128](file://src/providers/midea/devices.ts#L90-L128)
+- [pantum/index.ts:52-90](file://src/providers/pantum/index.ts#L52-L90)
+
+## Detailed Component Analysis
+
+### VendorProvider Contract
+The `VendorProvider` interface defines the complete contract for vendor integrations. It separates concerns between:
+- Capability discovery: id, name, authModes, listRegions.
+- Authentication orchestration: pending context creation and multi-step flows.
+- Session management: lightweight checkSession to validate tokens.
+- Device operations: listDevices, refreshLive, getDeviceDetail, setProperty, runAction.
+
+Key design points:
+- Optional methods allow vendors to support only their supported flows (e.g., Pantum does not support password login).
+- PendingAuth carries temporary credentials and vendor-specific state until a full VendorSession is created.
+- DeviceSummary and DeviceDetail provide a stable shape for UI and control layers.
+
+```mermaid
+classDiagram
+class VendorProvider {
++string id
++string name
++AuthMode[] authModes
++listRegions() RegionInfo[]
++createPending(region) PendingAuth
++loginPassword(pending, captcha) LoginOutcome
++loginSms(pending) LoginOutcome
++sendSms(pending, captcha) needCaptcha
++beginEmail2fa(pending) PendingAuth
++verifyEmail2fa(pending, code) VendorSession
++beginQr(pending) PendingAuth
++pollQr(pending) VendorSession|null
++getCaptchaImage(pending) BinaryImage
++getQrImage(pending) BinaryImage
++checkSession(session) void
++listDevices(session) DeviceSummary[]
++refreshLive(session, devices) LiveItem[]
++getDeviceDetail(session, did) DeviceDetail
++setProperty(session, did, siid, piid, value, key) void
++runAction(session, did, siid, aiid) void
+}
+class PendingAuth {
++string vendorId
++string region
++unknown state
++string username
++string password
++string captchaUrl
++string notificationUrl
++number createdAt
+}
+class VendorSession {
++string vendorId
++string userId
++string region
++Map~string, DeviceSummary~ devices
++unknown state
+}
+class DeviceSummary {
++string did
++string vendorId
++string name
++string model
++boolean online
++string room
++string icon
++string specType
++LiveItem[] live
+}
+class DeviceDetail {
++DeviceSummary device
++DeviceService[] services
+}
+VendorProvider --> PendingAuth : "creates"
+VendorProvider --> VendorSession : "returns"
+VendorProvider --> DeviceSummary : "lists"
+VendorProvider --> DeviceDetail : "details"
+```
+
+**Diagram sources**
+- [types.ts:105-143](file://src/providers/types.ts#L105-L143)
+- [types.ts:77-84](file://src/providers/types.ts#L77-L84)
+- [types.ts:22-33](file://src/providers/types.ts#L22-L33)
+- [types.ts:67-70](file://src/providers/types.ts#L67-L70)
+
+**Section sources**
+- [types.ts:1-144](file://src/providers/types.ts#L1-L144)
+
+### Registry Pattern for Dynamic Registration and Discovery
+The registry maintains an internal Map of providers keyed by id. It provides:
+- registerVendor: adds a provider during bootstrap.
+- getVendor: returns a provider or throws a vendor-not-supported error.
+- listVendors: maps registered providers to VendorInfo for UI discovery.
+
+```mermaid
+flowchart TD
+Start(["Bootstrap"]) --> Register["registerVendor(provider)"]
+Register --> Store["providers.set(id, provider)"]
+Store --> Ready(["Ready"])
+Ready --> Lookup["getVendor(id)"]
+Lookup --> Found{"Provider exists?"}
+Found --> |Yes| Return["Return provider"]
+Found --> |No| Throw["Throw unsupported vendor error"]
+```
+
+**Diagram sources**
+- [registry.ts:4-13](file://src/core/registry.ts#L4-L13)
+
+**Section sources**
+- [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+
+### Xiaomi Provider Implementation
+Xiaomi supports password and QR authentication, email 2FA, and MIoT spec-driven device models.
+
+Authentication highlights:
+- Password login may return immediate success, require a captcha, or trigger email 2FA.
+- Email 2FA begins a ticket flow and verifies the code before completing login.
+- QR login obtains a polling URL and long-polls until scanned.
+- Captcha and QR images are fetched using stored cookies and UA headers.
+
+Device operations:
+- listDevices fetches home rooms and device lists, deduplicates devices, and caches them in session.devices.
+- refreshLive selects top live properties from MIoT spec and reads values in chunks.
+- getDeviceDetail builds a panel from spec-derived fields and actions, attaching current values and error codes.
+- setProperty and runAction call MIoT endpoints and translate vendor codes into AppError.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client"
+participant Route as "Route"
+participant Xiaomi as "Xiaomi Provider"
+participant Auth as "Xiaomi Auth"
+participant Devices as "Xiaomi Devices"
+participant MIoT as "MIoT API"
+Client->>Route : POST login
+Route->>Xiaomi : loginPassword(pending, captcha?)
+Xiaomi->>Auth : loginPassword(...)
+Auth->>MIoT : serviceLogin / serviceLoginAuth2
+MIoT-->>Auth : ssecurity/location or captcha/email
+Auth-->>Xiaomi : ok | captcha | email
+Xiaomi-->>Route : LoginOutcome
+Client->>Route : GET devices
+Route->>Xiaomi : listDevices(session)
+Xiaomi->>Devices : listDevices(...)
+Devices->>MIoT : homeroom / home_device_list
+MIoT-->>Devices : device rows
+Devices->>MIoT : prop/get (live props)
+MIoT-->>Devices : values
+Devices-->>Route : DeviceSummary[]
+```
+
+**Diagram sources**
+- [xiaomi/auth.ts:33-91](file://src/providers/xiaomi/auth.ts#L33-L91)
+- [xiaomi/auth.ts:94-173](file://src/providers/xiaomi/auth.ts#L94-L173)
+- [xiaomi/auth.ts:175-223](file://src/providers/xiaomi/auth.ts#L175-L223)
+- [xiaomi/devices.ts:180-223](file://src/providers/xiaomi/devices.ts#L180-L223)
+- [xiaomi/devices.ts:225-245](file://src/providers/xiaomi/devices.ts#L225-L245)
+- [xiaomi/devices.ts:247-266](file://src/providers/xiaomi/devices.ts#L247-L266)
+
+**Section sources**
+- [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
+- [xiaomi/auth.ts:1-268](file://src/providers/xiaomi/auth.ts#L1-L268)
+- [xiaomi/devices.ts:1-298](file://src/providers/xiaomi/devices.ts#L1-L298)
+
+### Midea Provider Implementation
+Midea supports SMS and password authentication, with device state modeled as Lua-like key-value pairs.
+
+Authentication highlights:
+- sendSms validates phone format, optionally requires captcha, and stores captcha body/type in pending state.
+- loginSms completes registration/login and extracts accessToken, userId, and sessionKey.
+- loginPassword performs ID lookup then login with encrypted credentials.
+
+Device operations:
+- listDevices enumerates homes and appliances, normalizes device summaries, and caches them.
+- refreshLive reads device status per device and formats up to four live chips.
+- getDeviceDetail builds a panel from status fields, marking boolean-like fields as writable switches.
+- setProperty encodes field values and sends control commands.
+- runAction is not supported and throws an action error.
+
+```mermaid
+sequenceDiagram
+participant Client as "Client"
+participant Route as "Route"
+participant Midea as "Midea Provider"
+participant Auth as "Midea Auth"
+participant Devices as "Midea Devices"
+participant MideaAPI as "Midea API"
+Client->>Route : POST sendSms
+Route->>Midea : sendSms(pending, captcha?)
+Midea->>Auth : sendSms(...)
+Auth->>MideaAPI : getSmsCode
+MideaAPI-->>Auth : imgCode/randomToken
+Auth-->>Midea : needCaptcha?
+Midea-->>Route : {needCaptcha}
+Client->>Route : POST loginSms
+Route->>Midea : loginSms(pending)
+Midea->>Auth : loginSms(...)
+Auth->>MideaAPI : register/login
+MideaAPI-->>Auth : accessToken/userInfo
+Auth-->>Midea : VendorSession
+Midea-->>Route : LoginOutcome
+Client->>Route : GET devices
+Route->>Midea : listDevices(session)
+Midea->>Devices : listDevices(...)
+Devices->>MideaAPI : homegroup/list / appliance/home/list
+MideaAPI-->>Devices : home/appliance data
+Devices->>MideaAPI : device/status/lua/get
+MideaAPI-->>Devices : status fields
+Devices-->>Route : DeviceSummary[]
+```
+
+**Diagram sources**
+- [midea/auth.ts:51-86](file://src/providers/midea/auth.ts#L51-L86)
+- [midea/auth.ts:111-175](file://src/providers/midea/auth.ts#L111-L175)
+- [midea/devices.ts:90-128](file://src/providers/midea/devices.ts#L90-L128)
+- [midea/devices.ts:130-147](file://src/providers/midea/devices.ts#L130-L147)
+- [midea/devices.ts:149-156](file://src/providers/midea/devices.ts#L149-L156)
+
+**Section sources**
+- [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
+- [midea/auth.ts:1-176](file://src/providers/midea/auth.ts#L1-L176)
+- [midea/devices.ts:1-180](file://src/providers/midea/devices.ts#L1-L180)
+
+### Pantum Provider Implementation
+Pantum focuses on cloud printing with SMS-only login and fixed device metadata.
+
+Authentication highlights:
+- loginPassword is intentionally unsupported; users must use SMS.
+- sendSms validates Chinese mobile numbers and calls the cloud verification endpoint.
+- loginSms logs in by phone, creates a VendorSession, and preloads bound devices.
+
+Device operations:
+- listDevices refreshes bound devices and updates session.devices.
+- refreshLive reuses listDevices and maps online/offline status into live items.
+- getDeviceDetail builds a panel with serial number and cloud status, plus a print action.
+- setProperty throws a property error because cloud devices are read-only.
+- runAction redirects to file upload printing rather than direct property control.
+
+```mermaid
+flowchart TD
+Start(["User selects Pantum"]) --> SendSMS["sendSms(mobile)"]
+SendSMS --> ValidateMobile{"Valid mobile?"}
+ValidateMobile --> |No| ErrorSMS["Throw AUTH error"]
+ValidateMobile --> |Yes| CallCloud["Call cloud sendLoginCode"]
+CallCloud --> LoginSMS["loginSms(mobile, code)"]
+LoginSMS --> CreateSession["Create VendorSession + preload devices"]
+CreateSession --> ListDevices["listDevices -> refresh"]
+ListDevices --> Detail["getDeviceDetail -> buildPanel(sn,status,print)"]
+Detail --> PrintAction["runAction -> printFile"]
+```
+
+**Diagram sources**
+- [pantum/index.ts:52-85](file://src/providers/pantum/index.ts#L52-L85)
+- [pantum/index.ts:90-110](file://src/providers/pantum/index.ts#L90-L110)
+- [pantum/cloud.ts:37-57](file://src/providers/pantum/cloud.ts#L37-L57)
+- [pantum/cloud.ts:109-141](file://src/providers/pantum/cloud.ts#L109-L141)
+
+**Section sources**
+- [pantum/index.ts:1-112](file://src/providers/pantum/index.ts#L1-L112)
+- [pantum/cloud.ts:1-269](file://src/providers/pantum/cloud.ts#L1-L269)
+
+### Creating a New Provider
+To add a new vendor:
+1. Define a provider object implementing VendorProvider.
+2. Implement required methods based on vendor capabilities.
+3. If the vendor supports additional flows, implement optional methods like loginSms, sendSms, beginQr, pollQr, getCaptchaImage, getQrImage.
+4. Export the provider instance.
+5. Register it in bootstrapProviders so routes can discover it.
+
+Recommended structure:
+- index.ts: export the provider object wiring auth and devices modules.
+- auth.ts: handle pending context creation and authentication flows.
+- devices.ts: implement listDevices, refreshLive, getDeviceDetail, setProperty, runAction.
+- state.ts or api.ts: vendor-specific HTTP client, encryption, and token handling.
+
+When mapping vendor device properties to unified models:
+- For MIoT-style specs, derive fields and actions from spec services and properties.
+- For Lua-style states, infer writable boolean-like fields and expose raw values.
+- For cloud-only devices, expose fixed metadata and actions such as print.
+
+**Section sources**
+- [index.ts:8-14](file://src/providers/index.ts#L8-L14)
+- [types.ts:105-143](file://src/providers/types.ts#L105-L143)
+
+### Vendor-Specific Authentication Flows
+- Xiaomi:
+  - Password flow may require captcha or email 2FA.
+  - Email 2FA uses a ticket flow and verifies a code before obtaining final tokens.
+  - QR flow polls a long-poll URL until scanned.
+- Midea:
+  - SMS flow may require a captcha image embedded as base64 or URL.
+  - Password flow encrypts credentials and performs ID lookup followed by login.
+- Pantum:
+  - SMS-only flow validates mobile format and calls cloud endpoints.
+  - No password or QR support.
+
+Common patterns:
+- Use PendingAuth to carry temporary state and credentials.
+- Convert vendor sessions into VendorSession with a Map of cached devices.
+- Normalize errors using AppError with meaningful codes and HTTP statuses.
+
+**Section sources**
+- [xiaomi/auth.ts:33-91](file://src/providers/xiaomi/auth.ts#L33-L91)
+- [xiaomi/auth.ts:94-173](file://src/providers/xiaomi/auth.ts#L94-L173)
+- [midea/auth.ts:51-86](file://src/providers/midea/auth.ts#L51-L86)
+- [midea/auth.ts:111-175](file://src/providers/midea/auth.ts#L111-L175)
+- [pantum/index.ts:62-85](file://src/providers/pantum/index.ts#L62-L85)
+
+### Mapping Vendor Properties to Unified Models
+- Xiaomi:
+  - Uses MIoT spec URNs to derive stable keys like service.property.
+  - Maps access modes to writable flags, value ranges, and option lists.
+  - Builds panels with groups and actions derived from spec services.
+- Midea:
+  - Treats each status field as a potential control if it looks boolean-like.
+  - Encodes field values back to vendor format when writing.
+- Pantum:
+  - Exposes fixed fields like serial number and cloud status.
+  - Provides a print action instead of property writes.
+
+```mermaid
+flowchart TD
+VendorData["Vendor Device Data"] --> Normalize["Normalize to DeviceSummary"]
+Normalize --> SpecOrState{"Spec-driven or State-driven?"}
+SpecOrState --> |MIoT Spec| DeriveFields["Derive fields/actions from spec"]
+SpecOrState --> |Lua State| InferFields["Infer writable boolean-like fields"]
+SpecOrState --> |Cloud Fixed| BuildFixed["Build fixed metadata + actions"]
+DeriveFields --> Panel["buildPanel(DeviceSummary, fields, actions)"]
+InferFields --> Panel
+BuildFixed --> Panel
+Panel --> DeviceDetail["DeviceDetail returned to caller"]
+```
+
+**Diagram sources**
+- [xiaomi/devices.ts:131-172](file://src/providers/xiaomi/devices.ts#L131-L172)
+- [midea/devices.ts:17-31](file://src/providers/midea/devices.ts#L17-L31)
+- [pantum/index.ts:95-104](file://src/providers/pantum/index.ts#L95-L104)
+
+**Section sources**
+- [xiaomi/devices.ts:131-172](file://src/providers/xiaomi/devices.ts#L131-L172)
+- [midea/devices.ts:17-31](file://src/providers/midea/devices.ts#L17-L31)
+- [pantum/index.ts:95-104](file://src/providers/pantum/index.ts#L95-L104)
+
+## Dependency Analysis
+The provider layer depends on:
+- Core registry for provider discovery.
+- Control profiles for building panels and encoding field values.
+- Vendor-specific HTTP clients, crypto utilities, and state managers.
+- Error utilities for consistent error propagation and auth failure detection.
+
+```mermaid
+graph LR
+Types["types.ts"] --> Registry["registry.ts"]
+Registry --> ProvidersIndex["providers/index.ts"]
+ProvidersIndex --> XiaomiIdx["xiaomi/index.ts"]
+ProvidersIndex --> MideaIdx["midea/index.ts"]
+ProvidersIndex --> PantumIdx["pantum/index.ts"]
+XiaomiIdx --> XiaomiAuth["xiaomi/auth.ts"]
+XiaomiIdx --> XiaomiDev["xiaomi/devices.ts"]
+MideaIdx --> MideaAuth["midea/auth.ts"]
+MideaIdx --> MideaDev["midea/devices.ts"]
+PantumIdx --> PantumCloud["pantum/cloud.ts"]
+Errors["errors.ts"] --> XiaomiDev
+Errors --> MideaDev
+Errors --> PantumIdx
+```
+
+**Diagram sources**
+- [types.ts:1-144](file://src/providers/types.ts#L1-L144)
+- [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+- [index.ts:1-17](file://src/providers/index.ts#L1-L17)
+- [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
+- [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
+- [pantum/index.ts:1-112](file://src/providers/pantum/index.ts#L1-L112)
+- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+
+**Section sources**
+- [index.ts:1-17](file://src/providers/index.ts#L1-L17)
+- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+
+## Performance Considerations
+- Batched property reads: Xiaomi chunks property reads into groups of 16 to reduce API calls.
+- Spec caching: Xiaomi caches MIoT spec documents per type to avoid repeated network requests.
+- Parallel live refresh: Midea reads device statuses concurrently using Promise.all.
+- Deduplication: Both Xiaomi and Midea deduplicate devices by did to prevent duplicates.
+- Lightweight session checks: Vendors implement minimal endpoints to validate sessions without heavy payloads.
+
+Recommendations:
+- Add rate limiting per vendor to respect API quotas.
+- Introduce retry policies with exponential backoff for transient network errors.
+- Cache device lists with TTL and invalidate on auth changes.
+- Debounce rapid property writes to avoid flooding vendor APIs.
+
+[No sources needed since this section provides general guidance]
+
+## Troubleshooting Guide
+Common issues and strategies:
+- Authentication failures:
+  - Use isAuthFailure to detect expired or invalid sessions.
+  - Prompt users to re-login when checkSession fails.
+- Unsupported vendor:
+  - getVendor throws an error if the vendor id is not registered.
+- Missing credentials:
+  - Vendors throw AppError when tokens or session keys are missing.
+- Property write errors:
+  - Xiaomi and Midea translate vendor response codes into AppError with actionable messages.
+- Cloud printing errors:
+  - Pantum logs detailed error responses and maps OSS/signature issues to user-facing errors.
+
+Best practices:
+- Always wrap vendor API calls with AppError to preserve codes and statuses.
+- Surface public errors via toPublicError for consistent client-side handling.
+- Log sensitive data carefully; mask tokens and secrets in error logs.
+
+**Section sources**
+- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+- [xiaomi/devices.ts:268-297](file://src/providers/xiaomi/devices.ts#L268-L297)
+- [midea/devices.ts:158-179](file://src/providers/midea/devices.ts#L158-L179)
+- [pantum/index.ts:105-110](file://src/providers/pantum/index.ts#L105-L110)
+- [pantum/cloud.ts:143-176](file://src/providers/pantum/cloud.ts#L143-L176)
+
+## Conclusion
+The provider system delivers a clean abstraction over diverse vendor ecosystems. By enforcing a strict VendorProvider contract and leveraging a registry for dynamic discovery, the application can support multiple vendors with consistent behavior. Xiaomi’s MIoT spec-driven approach, Midea’s Lua-style state model, and Pantum’s cloud-printing focus illustrate how vendor-specific logic is encapsulated while maintaining uniform interfaces for device management and control.
+
+Adopting standardized error handling, cautious caching, and rate-limiting will improve reliability and scalability. Testing should cover authentication flows, device listing, live refresh, property writes, and action execution for each vendor.
+
+[No sources needed since this section summarizes without analyzing specific files]
+
+## Appendices
+
+### Example: Adding a New Provider
+Steps:
+1. Create a folder under src/providers with index.ts, auth.ts, devices.ts, and optional helpers.
+2. Implement VendorProvider methods according to vendor capabilities.
+3. Export the provider instance from index.ts.
+4. Register it in bootstrapProviders.
+5. Test authentication, device listing, live refresh, property writes, and actions.
+
+**Section sources**
+- [index.ts:8-14](file://src/providers/index.ts#L8-L14)
+- [types.ts:105-143](file://src/providers/types.ts#L105-L143)

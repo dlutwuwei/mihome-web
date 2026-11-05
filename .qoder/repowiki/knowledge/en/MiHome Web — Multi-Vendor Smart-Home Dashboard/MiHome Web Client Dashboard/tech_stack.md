@@ -1,0 +1,1 @@
+React 18 + TypeScript 5 + Vite 5 with `@vitejs/plugin-react`; no router or state library — uses raw `fetch`, `useState`/`useEffect`, and CSS classes defined in `styles.css`.

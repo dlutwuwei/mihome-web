@@ -1,0 +1,1 @@
+Node.js `node:crypto` for HMAC-SHA256 signing, MD5/SHA-256 hashing, and AES-ECB decryption; plain `fetch` against Midea's `mp-prod.smartmidea.net` gateway.

@@ -1,0 +1,1 @@
+Node.js `node:crypto` for MD5/SHA1/SHA256 and a hand-rolled RC4 stream cipher used to sign and encrypt MIoT cloud requests; cookies are maintained via an in-process `CookieJar` that follows redirects across the Xiaomi passport flow.

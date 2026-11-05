@@ -1,3 +1,5 @@
+import type { ControlKind } from "../controls/types.js";
+
 export type AuthMode = "password" | "sms" | "qr";
 
 export interface RegionInfo {
@@ -31,10 +33,16 @@ export interface DeviceSummary {
 }
 
 export interface DeviceProperty {
+  /** 档案层的稳定字段名，写回时优先于 siid/piid */
+  id?: string;
   siid: number;
   piid: number;
   name: string;
-  format: string;
+  /** 面板控件类型，由 controls 层合成 */
+  kind?: ControlKind;
+  /** 厂商原生格式（米家 format）；仅供调试，面板不再依赖它 */
+  format?: string;
+  unit?: string;
   writable: boolean;
   range: number[] | null;
   list: Array<{ value: string | number | boolean; name: string }>;
@@ -43,6 +51,7 @@ export interface DeviceProperty {
 }
 
 export interface DeviceAction {
+  id?: string;
   siid: number;
   aiid: number;
   name: string;
@@ -127,8 +136,8 @@ export interface VendorProvider {
   refreshLive(session: VendorSession, devices: DeviceSummary[]): Promise<Record<string, LiveItem[]>>;
   /** 读取单台设备的可控制属性和动作，并带上当前属性值。 */
   getDeviceDetail(session: VendorSession, did: string): Promise<DeviceDetail>;
-  /** 写入设备属性，例如开关、亮度。 */
-  setProperty(session: VendorSession, did: string, siid: number, piid: number, value: unknown): Promise<void>;
+  /** 写入设备属性，例如开关、亮度。key 是档案层的稳定字段名，优先于 siid/piid。 */
+  setProperty(session: VendorSession, did: string, siid: number, piid: number, value: unknown, key?: string): Promise<void>;
   /** 执行设备动作，例如开始清扫。 */
   runAction(session: VendorSession, did: string, siid: number, aiid: number): Promise<void>;
 }

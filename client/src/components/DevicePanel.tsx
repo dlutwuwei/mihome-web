@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { MouseEvent } from "react";
 import { PropRow } from "./PropRow";
 import type { DeviceAction, DeviceDetail, DeviceProp, PropValue } from "../types";
 import { errorText } from "../utils/api";
@@ -68,6 +69,8 @@ const PRINT_FIELDS: Array<{ key: keyof PrintOptions; label: string; options: Arr
   ] },
 ];
 
+const LEAVE_MS = 240;
+
 export function DevicePanel({
   detail,
   subtitle,
@@ -90,25 +93,49 @@ export function DevicePanel({
   const [options, setOptions] = useState<PrintOptions>(PRINT_DEFAULTS);
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState("");
+  const [closing, setClosing] = useState(false);
+  const closingTimer = useRef<number | null>(null);
+  useEffect(() => () => {
+    if (closingTimer.current != null) window.clearTimeout(closingTimer.current);
+  }, []);
+  const startClose = useCallback(() => {
+    if (closingTimer.current != null) return;
+    setClosing(true);
+    closingTimer.current = window.setTimeout(() => {
+      closingTimer.current = null;
+      onClose();
+    }, LEAVE_MS);
+  }, [onClose]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !pending) startClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pending, startClose]);
+  const requestClose = (event?: MouseEvent) => {
+    if (event && event.target !== event.currentTarget) return;
+    startClose();
+  };
   return (
     <>
-    <div className="mask" onClick={(event) => { if (event.target === event.currentTarget && !pending) onClose(); }}>
-      <aside className="panel">
+    <div className={closing ? "mask leave" : "mask"} onClick={(event) => { if (!pending) requestClose(event); }}>
+      <aside className={closing ? "panel leave" : "panel"} role="dialog" aria-modal="true" aria-label={device.name}>
         <div className="panel-head">
           <h2>{device.name}</h2>
-          <button type="button" className="text" onClick={onClose}>关闭</button>
+          <button type="button" className="text" onClick={() => requestClose()}>关闭</button>
         </div>
         <p className="sub">{subtitle}</p>
         <p className="err">{error}</p>
         {services.length ? services.map((service) => (
-          <section className="svc" key={service.siid}>
+          <section className="svc" key={service.name}>
             <h3>{service.name}</h3>
             {service.properties.map((prop) => (
-              <PropRow key={`${prop.siid}:${prop.piid}`} prop={prop} onSet={onSet} />
+              <PropRow key={prop.id || `${prop.siid}:${prop.piid}`} prop={prop} onSet={onSet} />
             ))}
             {service.actions.map((action) => (
-              action.name === "上传打印" ? (
-                <div className="row" key={`${action.siid}:${action.aiid}`}>
+              action.id === "print" || action.name === "上传打印" ? (
+                <div className="row" key={action.id || `${action.siid}:${action.aiid}`}>
                   <span>{action.name}</span>
                   <label className="action file">
                     选择文件
@@ -127,14 +154,14 @@ export function DevicePanel({
                   </label>
                 </div>
               ) : (
-                <div className="row" key={`${action.siid}:${action.aiid}`}>
+                <div className="row" key={action.id || `${action.siid}:${action.aiid}`}>
                   <span>{action.name}</span>
                   <button type="button" className="action" onClick={() => onAction(action)}>执行</button>
                 </div>
               )
             ))}
           </section>
-        )) : <p className="hint">这个设备没有可读写的 Spec 属性</p>}
+        )) : <p className="hint">这个设备暂无可展示的属性</p>}
       </aside>
     </div>
     {pending ? (

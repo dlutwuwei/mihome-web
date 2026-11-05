@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApiKeyManager } from "../components/ApiKeyManager";
 import { DevicePanel, type PrintOptions } from "../components/DevicePanel";
 import { VendorLogin } from "../components/VendorLogin";
 import type { Account, Device, DeviceAction, DeviceDetail, DeviceProp, LiveChip, PropValue, VendorInfo } from "../types";
@@ -27,6 +28,8 @@ export function Home({
   const [current, setCurrent] = useState<{ accountId: string; did: string } | null>(null);
   const [error, setError] = useState("");
   const [relogin, setRelogin] = useState<Account | null>(null);
+  const [keys, setKeys] = useState(false);
+  const keysTriggerRef = useRef<HTMLButtonElement>(null);
   const detailSeq = useRef(0);
   const accountKey = accounts.map((account) => account.accountId).join(",");
 
@@ -155,7 +158,7 @@ export function Home({
     try {
       await api(`${devicePath(target.accountId, target.did)}/prop`, {
         method: "POST",
-        body: { siid: prop.siid, piid: prop.piid, value },
+        body: { id: prop.id, siid: prop.siid, piid: prop.piid, value },
       });
       if (seq !== detailSeq.current) return;
       await refreshDetail(target, seq);
@@ -391,6 +394,17 @@ export function Home({
           {accounts.length ? (
             <button type="button" className="text" onClick={() => { void loadDevices(); void checkStatuses(); }}>刷新读数</button>
           ) : null}
+          <button
+            ref={keysTriggerRef}
+            type="button"
+            className={keys ? "text on" : "text"}
+            aria-haspopup="dialog"
+            aria-expanded={keys}
+            aria-controls="api-key-drawer"
+            onClick={() => setKeys((open) => !open)}
+          >
+            设备信息分发
+          </button>
           {accounts.length > 1 ? <button type="button" className="text" onClick={() => void logout()}>全部退出</button> : null}
         </div>
       </aside>
@@ -480,6 +494,7 @@ export function Home({
           onUpload={(file, options) => uploadPrint(file, options)}
         />
       ) : null}
+      {keys ? <ApiKeyManager anchorRef={keysTriggerRef} onClose={() => setKeys(false)} /> : null}
       {adding ? (
         <div className="sheet" onClick={(event) => { if (event.target === event.currentTarget) closeLogin(); }}>
           <VendorLogin

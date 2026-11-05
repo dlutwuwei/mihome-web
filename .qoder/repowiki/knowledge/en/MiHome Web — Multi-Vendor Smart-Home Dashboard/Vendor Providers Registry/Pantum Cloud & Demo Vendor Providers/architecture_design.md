@@ -1,0 +1,7 @@
+Two independent `VendorProvider` implementations live side-by-side under `src/providers/`, each exporting a single provider object consumed by the central registry.
+
+- `pantum/index.ts` implements the `pantum` provider: it exposes SMS-only auth (`sendSms` / `loginSms`), device listing via the Pantum cloud API, and file upload + print-task creation. It keeps per-session state (token, userId, mobile, cached devices) inside `session.state` typed as `PantunState` extending `CloudSession`, and uses `buildPanel` from `controls` to render the device detail UI.
+- `pantum/cloud.ts` is a self-contained HTTP client against `https://api-cloudprint.pantum.com`. It handles MD5 request signing (`signOf` with a hardcoded `SECRET`), STS-based OSS direct PUT uploads (`putOss` using `node:https` with HMAC-SHA1 signatures), PDF page counting, and MIME-to-extension mapping. All external errors are wrapped as `AppError` with domain codes (`AUTH`, `PRINT`, `CLOUD`).
+- `demo/index.ts` provides a mock `demo` vendor with an in-memory `DeviceSummary[]` and mutable session state (`on`, `brightness`). It demonstrates password auth, property mutation via `encodeFieldValue`, and panel construction — explicitly noted as unregistered by default so bootstrap can opt it in.
+
+Dependency direction is one-way: both providers depend on `../types.js` (the shared `VendorProvider` contract) and `../../core/errors.js`; `pantum` additionally depends on `../../controls/index.js` and its own `cloud.ts`. Neither provider imports from other providers or from the registry.

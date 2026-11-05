@@ -1,0 +1,1 @@
+Node.js built-ins only (`node:crypto` for MD5/HMAC, `node:https` for direct OSS PUT); no third-party HTTP libraries. Pantum cloud uses MD5 request signing and OSS v4-style HMAC-SHA1 signed PUTs over STS credentials.

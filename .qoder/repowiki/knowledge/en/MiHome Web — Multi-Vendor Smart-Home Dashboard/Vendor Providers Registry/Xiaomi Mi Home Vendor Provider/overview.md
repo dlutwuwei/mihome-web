@@ -1,0 +1,1 @@
+Vendor provider implementing Xiaomi/Mi Home authentication (password, QR, email 2FA) and device listing/property control via the MIoT cloud API.

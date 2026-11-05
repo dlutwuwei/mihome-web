@@ -1,0 +1,1 @@
+Built-in profiles are auto-registered through `bootstrapProfiles()` called once at startup; user overrides live as JSON files under `data/profiles/<vendor>/<id>.json` and take effect immediately on next read thanks to the mtime stamp cache.

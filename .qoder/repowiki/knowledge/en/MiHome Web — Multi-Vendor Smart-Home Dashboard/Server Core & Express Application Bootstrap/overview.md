@@ -1,0 +1,1 @@
+Express application bootstrap and shared server-side core: API key auth, hub/session persistence, vendor registry, error types, and account health probing.

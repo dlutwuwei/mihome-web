@@ -1,0 +1,3 @@
+- Server bootstrap is centralized: vendors register themselves via `bootstrapProviders()` before `createApp()` mounts routers.
+- HTTP endpoints are split per feature into `routes/*.ts` mounted under a common `/api` prefix in `app.ts` rather than inline handlers.
+- Vendor-specific behavior is isolated behind the `VendorProvider` interface so routes and controls only see a normalized contract.

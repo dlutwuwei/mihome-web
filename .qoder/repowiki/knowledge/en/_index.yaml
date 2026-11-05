@@ -1,0 +1,108 @@
+# 知识卡导出索引文件
+schema_version: 1
+locale: en-US
+branch: main
+nodes_managed: true
+exported_at: "2026-11-05T03:18:05Z"
+modules:
+    "":
+        dir_name: MiHome Web — Multi-Vendor Smart-Home Dashboard
+        title: MiHome Web — Multi-Vendor Smart-Home Dashboard
+        scope:
+            - README.md
+            - .gitignore
+            - package.json
+            - tsconfig.json
+            - docs/
+            - public/
+        source_files: []
+        children:
+            - client
+            - controls
+            - providers
+            - routes
+            - server_core
+        depends_on: []
+        related_to: []
+    client:
+        dir_name: MiHome Web Client Dashboard
+        title: MiHome Web Client Dashboard
+        scope:
+            - client/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: routes
+    controls:
+        dir_name: Device Control Profiles & Panel Rendering
+        title: Device Control Profiles & Panel Rendering
+        scope:
+            - src/controls/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    providers:
+        dir_name: Vendor Providers Registry
+        title: Vendor Providers Registry
+        scope:
+            - src/providers/
+        source_files: []
+        children:
+            - providers/midea_provider
+            - providers/pantum_demo_providers
+            - providers/xiaomi_provider
+        depends_on: []
+        related_to:
+            - path: server_core
+    providers/midea_provider:
+        dir_name: Midea (美的美居) Vendor Provider
+        title: Midea (美的美居) Vendor Provider
+        scope:
+            - src/providers/midea/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    providers/pantum_demo_providers:
+        dir_name: Pantum Cloud & Demo Vendor Providers
+        title: Pantum Cloud & Demo Vendor Providers
+        scope:
+            - src/providers/pantum/
+            - src/providers/demo/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    providers/xiaomi_provider:
+        dir_name: Xiaomi Mi Home Vendor Provider
+        title: Xiaomi Mi Home Vendor Provider
+        scope:
+            - src/providers/xiaomi/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to: []
+    routes:
+        dir_name: Express Route Modules (Auth, Devices, API Keys, Profiles, Meta)
+        title: Express Route Modules (Auth, Devices, API Keys, Profiles, Meta)
+        scope:
+            - src/routes/
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: client
+    server_core:
+        dir_name: Server Core & Express Application Bootstrap
+        title: Server Core & Express Application Bootstrap
+        scope:
+            - src/core/
+            - src/app.ts
+            - src/index.ts
+        source_files: []
+        children: []
+        depends_on: []
+        related_to:
+            - path: providers

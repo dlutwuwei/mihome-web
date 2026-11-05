@@ -81,10 +81,10 @@ devicesRouter.post("/:accountId/:did/prop", async (req, res) => {
   if (!hub) return;
   const session = getAccount(hub.hubId, req.params.accountId);
   if (!session) return res.status(404).json({ error: "账号不存在" });
-  const { siid, piid, value } = req.body || {};
+  const { siid, piid, value, id } = req.body || {};
   try {
     const provider = getVendor(session.vendorId);
-    await provider.setProperty(session, req.params.did, Number(siid), Number(piid), value);
+    await provider.setProperty(session, req.params.did, Number(siid), Number(piid), value, id ? String(id) : undefined);
     res.json({ ok: true });
   } catch (error) {
     res.status(error instanceof AppError ? error.status : 502).json(toPublicError(error));

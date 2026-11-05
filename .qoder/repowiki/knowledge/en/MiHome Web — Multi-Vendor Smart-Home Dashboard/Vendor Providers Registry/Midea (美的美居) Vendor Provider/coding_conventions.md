@@ -1,0 +1,5 @@
+- Every outbound request is built via `mas(state, endpoint, payload)` rather than direct `fetch`, so headers, signing, timestamping, and error normalization are centralized.
+- Cloud responses are normalized by wrapping non-zero `code` values in `AppError` with a string code (e.g. `PARSE`, `CLOUD`) and an HTTP-like status, while successful responses return `parsed.data`.
+- Authentication state is carried as a typed `MideaAuthState` object created by `createAuthState(region, account)` and cast back via `sessionState(session.state)` at the boundary of each device operation.
+- Region/host selection is always resolved through `hostOf(state.region)` falling back to `REGIONS.cn`, keeping the base URL out of individual callers.
+- Raw field shapes are inferred from value types (boolean or on/off strings coerce to `switch` kind) and written back through `encodeFieldValue` paired with the last-known raw snapshot stored in `state.raw`.

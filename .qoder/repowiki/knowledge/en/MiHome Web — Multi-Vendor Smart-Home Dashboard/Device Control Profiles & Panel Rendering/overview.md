@@ -1,0 +1,1 @@
+Bridges vendor device adapters and the UI by applying layered profile rules and codecs to render a normalized control panel per device.

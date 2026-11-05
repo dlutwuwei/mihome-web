@@ -1,0 +1,11 @@
+schema_version: 1
+module_path: server_core
+title: Server Core & Express Application Bootstrap
+scope:
+    - src/core/
+    - src/app.ts
+    - src/index.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: providers

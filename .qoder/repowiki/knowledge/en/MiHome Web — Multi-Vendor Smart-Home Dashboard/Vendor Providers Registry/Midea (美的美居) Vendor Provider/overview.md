@@ -1,0 +1,1 @@
+Vendor adapter implementing the Midea smart-home API for login, device listing, status polling, and property control behind a signed HTTP proxy.

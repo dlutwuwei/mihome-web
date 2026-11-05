@@ -1,11 +1,15 @@
+import { buildPanel, encodeFieldValue, formatPanelValue, type VendorField } from "../../controls/index.js";
 import { AppError } from "../../core/errors.js";
 import type {
   DeviceDetail,
   DeviceSummary,
+  LiveItem,
   PendingAuth,
   VendorProvider,
   VendorSession,
 } from "../types.js";
+
+type DemoState = { on: boolean; brightness: number };
 
 /**
  * 示例厂商适配器：证明 Registry 可挂载多厂商。
@@ -20,7 +24,6 @@ const DEMO_DEVICES: DeviceSummary[] = [
     online: true,
     room: "客厅",
     icon: "",
-    live: [{ name: "开关", text: "开" }, { name: "亮度", text: "70%" }],
   },
 ];
 
@@ -32,6 +35,26 @@ function sessionFrom(pending: PendingAuth): VendorSession {
     devices: new Map(DEMO_DEVICES.map((device) => [device.did, { ...device }])),
     state: { on: true, brightness: 70 },
   };
+}
+
+function stateOf(session: VendorSession): DemoState {
+  return session.state as DemoState;
+}
+
+/** 演示厂商也只报事实：字段名 + 当前值，控件形态交给 demo-baseline 档案 */
+function fieldsOf(state: DemoState): VendorField[] {
+  return [
+    { key: "on", raw: state.on, writable: true },
+    { key: "brightness", raw: state.brightness, writable: true, range: [1, 100, 1] },
+  ];
+}
+
+function liveOf(state: DemoState): LiveItem[] {
+  const chips = buildPanel(DEMO_DEVICES[0], fieldsOf(state)).services.flatMap((service) => service.properties);
+  return chips.flatMap((prop) => {
+    const text = formatPanelValue(prop);
+    return text ? [{ name: prop.name, text }] : [];
+  });
 }
 
 export const demoProvider: VendorProvider = {
@@ -58,60 +81,25 @@ export const demoProvider: VendorProvider = {
   },
   async listDevices(session) {
     const devices = [...session.devices.values()];
+    const live = liveOf(stateOf(session));
+    for (const device of devices) device.live = live;
     return devices;
   },
   async refreshLive(session) {
-    const state = session.state as { on: boolean; brightness: number };
-    const live = {
-      "demo-light-1": [
-        { name: "开关", text: state.on ? "开" : "关" },
-        { name: "亮度", text: `${state.brightness}%` },
-      ],
-    };
-    return live;
+    return { "demo-light-1": liveOf(stateOf(session)) };
   },
   async getDeviceDetail(session, did): Promise<DeviceDetail> {
     const device = session.devices.get(did);
     if (!device) throw new AppError("设备不存在", "DEVICE", 404);
-    const state = session.state as { on: boolean; brightness: number };
-    return {
-      device,
-      services: [
-        {
-          siid: 2,
-          name: "灯光",
-          properties: [
-            {
-              siid: 2,
-              piid: 1,
-              name: "开关",
-              format: "bool",
-              writable: true,
-              range: null,
-              list: [],
-              value: state.on,
-            },
-            {
-              siid: 2,
-              piid: 2,
-              name: "亮度",
-              format: "uint8",
-              writable: true,
-              range: [1, 100, 1],
-              list: [],
-              value: state.brightness,
-            },
-          ],
-          actions: [],
-        },
-      ],
-    };
+    return buildPanel(device, fieldsOf(stateOf(session)));
   },
-  async setProperty(session, did, _siid, piid, value) {
+  async setProperty(session, did, _siid, _piid, value, key?) {
     if (!session.devices.has(did)) throw new AppError("设备不存在", "DEVICE", 404);
-    const state = session.state as { on: boolean; brightness: number };
-    if (piid === 1) state.on = Boolean(value);
-    if (piid === 2) state.brightness = Number(value);
+    if (!key) throw new AppError("缺少字段名", "PROP", 400);
+    const state = stateOf(session);
+    const raw = encodeFieldValue(DEMO_DEVICES[0], key, value, { raw: state[key as keyof DemoState] });
+    if (key === "on") state.on = Boolean(raw);
+    if (key === "brightness") state.brightness = Number(raw);
   },
   async runAction() {
     throw new AppError("演示厂商暂无动作", "ACTION", 400);
