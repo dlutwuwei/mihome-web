@@ -8,15 +8,22 @@
         <text class="page-title">Smart Home</text>
         <text class="page-subtitle">让每一处空间，都恰到好处</text>
       </view>
-      <button class="icon-button" bindtap="onSettingsTap" aria-label="打开服务接入设置">API</button>
     </view>
 
-    <view class="home-hero">
+    <view class="home-hero {{heroTone}}">
       <view class="hero-orb hero-orb-one"></view>
       <view class="hero-orb hero-orb-two"></view>
       <view class="hero-copy">
         <text class="hero-kicker">我的家庭</text>
-        <text class="hero-title">{{configured ? (info ? info.keyName : '正在连接') : '等待接入'}}</text>
+        <view class="hero-climate">
+          <text class="hero-title">{{configured ? averageTemperatureText : '--'}}</text>
+          <text class="hero-climate-label">{{configured ? '平均温度' : '等待接入'}}</text>
+        </view>
+        <view wx:if="{{configured && (averageHumidityText || comfortText)}}" class="hero-meta">
+          <text wx:if="{{averageHumidityText}}" class="hero-meta-text">湿度 {{averageHumidityText}}</text>
+          <text wx:if="{{averageHumidityText && comfortText}}" class="hero-meta-dot">·</text>
+          <text wx:if="{{comfortText}}" class="hero-meta-text">{{comfortText}}</text>
+        </view>
         <view class="hero-stats">
           <view class="hero-stat">
             <text class="hero-number">{{devices.length}}</text>
@@ -33,8 +40,9 @@
         </view>
       </view>
       <view class="hero-illustration">
-        <view class="home-symbol">HOME</view>
-        <view class="home-platform"></view>
+        <view class="hero-ring hero-ring-one"></view>
+        <view class="hero-ring hero-ring-two"></view>
+        <view class="hero-core">HOME</view>
       </view>
     </view>
 
@@ -46,23 +54,37 @@
         <text class="section-title">房间</text>
         <text class="section-note">{{filteredDevices.length}} 台设备</text>
       </view>
-      <scroll-view class="room-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+      <scroll-view
+        class="room-scroll"
+        scroll-x="{{true}}"
+        enhanced="{{true}}"
+        show-scrollbar="{{false}}"
+        enable-flex="{{true}}"
+        scroll-with-animation="{{true}}"
+        scroll-into-view="{{selectedRoomScrollId}}"
+      >
         <view class="room-list">
           <button
             wx:for="{{rooms}}"
             wx:key="name"
-            class="pill room-pill {{selectedRoom === item.name ? 'pill-active' : ''}}"
+            id="room-{{index}}"
+            class="room-pill {{selectedRoom === item.name ? 'room-pill-active' : ''}}"
             data-room="{{item.name}}"
+            data-index="{{index}}"
             bindtap="onRoomTap"
+            hover-class="none"
           >
-            {{item.name}} · {{item.count}}
+            <text class="room-pill-label">{{item.name}}</text>
+            <text class="room-pill-count">{{item.count}}</text>
           </button>
         </view>
       </scroll-view>
     </view>
 
     <view wx:if="{{loading && !devices.length}}" class="device-grid section">
-      <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="skeleton device-skeleton"></view>
+      <view wx:for="{{[1, 2, 3, 4]}}" wx:key="*this" class="device-grid-item">
+        <view class="skeleton device-skeleton"></view>
+      </view>
     </view>
 
     <view wx:elif="{{!configured}}" class="card empty section">
@@ -84,12 +106,12 @@
         <text class="section-note">轻点卡片进入控制</text>
       </view>
       <view class="device-grid">
-        <device-card
-          wx:for="{{filteredDevices}}"
-          wx:key="key"
-          device="{{item}}"
-          bind:select="onDeviceSelect"
-        />
+        <view wx:for="{{filteredDevices}}" wx:key="key" class="device-grid-item">
+          <device-card
+            device="{{item}}"
+            bind:select="onDeviceSelect"
+          />
+        </view>
       </view>
     </view>
   </view>

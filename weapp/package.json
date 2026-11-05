@@ -3,11 +3,18 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "test": "node tests/store.test.js",
-    "check": "node tests/check.js"
+    "test": "tsx tests/store.test.js && tsx tests/page.test.js",
+    "check": "tsc --noEmit && tsx tests/check.js",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "mobx-miniprogram": "^6.12.3",
     "mobx-miniprogram-bindings": "^7.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "miniprogram-api-typings": "^5.2.3",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
   }
 }

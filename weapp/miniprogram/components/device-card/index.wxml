@@ -18,10 +18,7 @@
     <text class="device-room">{{device.room || '未分组'}}</text>
   </view>
   <view class="device-card-bottom">
-    <view>
-      <text class="device-live">{{device.primaryLive}}</text>
-      <text class="device-model">{{device.model}}</text>
-    </view>
+    <text class="device-live">{{device.primaryLive}}</text>
     <view class="device-arrow">›</view>
   </view>
 </button>

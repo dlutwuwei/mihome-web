@@ -12,6 +12,7 @@
     "urlCheck": false,
     "coverView": true,
     "ignoreUploadUnusedFiles": true,
+    "useCompilerPlugins": ["typescript"],
     "packNpmManually": true,
     "packNpmRelationList": [
       {

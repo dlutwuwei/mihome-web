@@ -1,13 +1,13 @@
 page {
-  --ink: #292c3d;
-  --muted: #969bad;
-  --primary: #626dcc;
-  --primary-dark: #4f56ac;
-  --primary-soft: #eceefe;
-  --coral: #ef896c;
-  --mint: #76c8ae;
+  --ink: #2b2e3f;
+  --muted: #999daf;
+  --primary: #6370cd;
+  --primary-dark: #5059b3;
+  --primary-soft: #eef0fd;
+  --coral: #ef8c70;
+  --mint: #64b99c;
   --paper: #ffffff;
-  --background: #f4f6fb;
+  --background: #f6f7fb;
   min-height: 100%;
   background: var(--background);
   color: var(--ink);
@@ -24,6 +24,7 @@ scroll-view {
 }
 
 button {
+  width: auto;
   margin: 0;
   padding: 0;
   border: 0;
@@ -42,6 +43,7 @@ button::after {
 .page {
   position: relative;
   min-height: 100vh;
+  padding: 28rpx 30rpx 52rpx;
   padding: 28rpx 30rpx calc(52rpx + env(safe-area-inset-bottom));
   overflow: hidden;
 }
@@ -77,9 +79,15 @@ button::after {
 
 .page-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin: 12rpx 4rpx 32rpx;
+  gap: 24rpx;
+  margin: 10rpx 4rpx 30rpx;
+}
+
+.page-heading > view {
+  flex: 1;
+  min-width: 0;
 }
 
 .eyebrow {
@@ -94,7 +102,7 @@ button::after {
 
 .page-title {
   display: block;
-  font-size: 48rpx;
+  font-size: 45rpx;
   font-weight: 700;
   letter-spacing: -1rpx;
   line-height: 1.2;
@@ -109,9 +117,9 @@ button::after {
 
 .card {
   border: 1rpx solid rgba(79, 86, 172, 0.04);
-  border-radius: 36rpx;
+  border-radius: 32rpx;
   background: var(--paper);
-  box-shadow: 0 18rpx 48rpx rgba(55, 59, 102, 0.08);
+  box-shadow: 0 14rpx 36rpx rgba(55, 59, 102, 0.06);
 }
 
 .section {
@@ -139,12 +147,14 @@ button::after {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 56rpx;
-  padding: 0 26rpx;
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 54rpx;
+  padding: 0 24rpx;
   border-radius: 999rpx;
-  background: #f0f2f8;
+  background: #f1f2f7;
   color: #858a9e;
-  font-size: 24rpx;
+  font-size: 23rpx;
   white-space: nowrap;
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
@@ -184,20 +194,6 @@ button::after {
 .button-coral {
   background: var(--coral);
   box-shadow: 0 14rpx 30rpx rgba(239, 137, 108, 0.2);
-}
-
-.icon-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 10rpx 28rpx rgba(55, 59, 102, 0.08);
-  color: var(--primary);
-  font-size: 24rpx;
-  font-weight: 600;
 }
 
 .dot {

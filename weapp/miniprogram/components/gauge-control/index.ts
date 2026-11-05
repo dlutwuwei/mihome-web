@@ -1,6 +1,35 @@
-const { clampPropertyValue } = require("../../utils/device");
+import { clampPropertyValue } from "../../utils/device";
 
-Component({
+interface GaugeData {
+  value: number;
+  displayValue: string;
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  disabled: boolean;
+}
+
+type GaugeMethods = Record<string, (...args: any[]) => any> & {
+  initializeCanvas(): void;
+  draw(): void;
+  updateFromTouch(event: WechatMiniprogram.TouchCanvas, finished: boolean): void;
+  onTouchStart(event: WechatMiniprogram.TouchCanvas): void;
+  onTouchMove(event: WechatMiniprogram.TouchCanvas): void;
+  onTouchEnd(event: WechatMiniprogram.TouchCanvas): void;
+};
+
+interface GaugeExtra {
+  canvas: WechatMiniprogram.Canvas | null;
+  context: WechatMiniprogram.CanvasRenderingContext.CanvasRenderingContext2D | null;
+  width: number;
+  height: number;
+  pendingValue: number;
+  canvasLeft: number;
+  canvasTop: number;
+}
+
+Component<GaugeData, Record<string, any>, GaugeMethods, [], GaugeExtra>({
   properties: {
     value: { type: Number, value: 0, observer() { this.draw(); } },
     displayValue: { type: String, value: "--" },
@@ -24,21 +53,23 @@ Component({
   methods: {
     initializeCanvas() {
       wx.createSelectorQuery()
-        .in(this)
+        .in(this as unknown as WechatMiniprogram.Component.TrivialInstance)
         .select("#level-gauge")
         .fields({ node: true, size: true })
         .exec((result) => {
-          if (!result || !result[0] || !result[0].node) return;
-          const canvas = result[0].node;
-          const system = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync();
+          const item = result && result[0];
+          if (!item || !item.node) return;
+          const canvas = item.node as WechatMiniprogram.Canvas;
+          const system = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : wx.getSystemInfoSync();
           const ratio = system.pixelRatio || 2;
-          canvas.width = result[0].width * ratio;
-          canvas.height = result[0].height * ratio;
+          canvas.width = item.width * ratio;
+          canvas.height = item.height * ratio;
           this.canvas = canvas;
-          this.context = canvas.getContext("2d");
-          this.context.scale(ratio, ratio);
-          this.width = result[0].width;
-          this.height = result[0].height;
+          const context = canvas.getContext("2d");
+          this.context = context;
+          context.scale(ratio, ratio);
+          this.width = item.width;
+          this.height = item.height;
           this.draw();
         });
     },
@@ -107,12 +138,13 @@ Component({
       context.fill();
     },
 
-    updateFromTouch(event, finished) {
+    updateFromTouch(event: WechatMiniprogram.TouchCanvas, finished: boolean) {
       if (this.data.disabled) return;
       const touch = event.touches[0] || event.changedTouches[0];
       if (!touch || !this.width) return;
-      const x = typeof touch.x === "number" ? touch.x : touch.clientX - (this.canvasLeft || 0);
-      const y = typeof touch.y === "number" ? touch.y : touch.clientY - (this.canvasTop || 0);
+      const point = touch as unknown as { x?: number; y?: number; clientX?: number; clientY?: number };
+      const x = typeof point.x === "number" ? point.x : (point.clientX || 0) - (this.canvasLeft || 0);
+      const y = typeof point.y === "number" ? point.y : (point.clientY || 0) - (this.canvasTop || 0);
       const centerX = this.width / 2;
       const centerY = this.height / 2;
       const start = Math.PI * 0.75;
@@ -129,28 +161,31 @@ Component({
         rangeMin: this.data.min,
         rangeMax: this.data.max,
         rangeStep: this.data.step,
-        hasRange: true,
       };
       const value = clampPropertyValue(property, this.data.min + ratio * (this.data.max - this.data.min));
       this.pendingValue = value;
       this.triggerEvent(finished ? "change" : "changing", { value });
     },
 
-    onTouchStart(event) {
-      wx.createSelectorQuery().in(this).select("#level-gauge").boundingClientRect((rect) => {
-        if (rect) {
-          this.canvasLeft = rect.left;
-          this.canvasTop = rect.top;
-        }
-      }).exec();
+    onTouchStart(event: WechatMiniprogram.TouchCanvas) {
+      wx.createSelectorQuery()
+        .in(this as unknown as WechatMiniprogram.Component.TrivialInstance)
+        .select("#level-gauge")
+        .boundingClientRect((rect) => {
+          if (rect) {
+            this.canvasLeft = rect.left;
+            this.canvasTop = rect.top;
+          }
+        })
+        .exec();
       this.updateFromTouch(event, false);
     },
 
-    onTouchMove(event) {
+    onTouchMove(event: WechatMiniprogram.TouchCanvas) {
       this.updateFromTouch(event, false);
     },
 
-    onTouchEnd(event) {
+    onTouchEnd(event: WechatMiniprogram.TouchCanvas) {
       this.updateFromTouch(event, true);
     },
   },

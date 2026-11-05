@@ -1,0 +1,238 @@
+{
+  "devices": [
+    {
+      "did": "1964673289586147329",
+      "vendorId": "pantum",
+      "name": "M6760DW",
+      "model": "M6760DW",
+      "online": true,
+      "room": "云打印",
+      "icon": "",
+      "live": [
+        { "name": "序列号", "text": "CT2YV00FSP" },
+        { "name": "打印", "text": "云端在线" }
+      ],
+      "accountId": "9030abe7ff4086ce0b"
+    },
+    {
+      "did": "274160915",
+      "vendorId": "xiaomi",
+      "name": "微波炉",
+      "model": "chunmi.microwave.n20l01",
+      "online": true,
+      "room": "厨房",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:microwave-oven:0000A032:chunmi-n20l01:1",
+      "live": [{ "name": "状态", "text": "已暂停" }],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "426331625",
+      "vendorId": "xiaomi",
+      "name": "米家智能加湿器",
+      "model": "deerma.humidifier.jsq3",
+      "online": false,
+      "room": "卧室",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:humidifier:0000A00E:deerma-jsq3:1",
+      "live": [
+        { "name": "开关", "text": "关" },
+        { "name": "开关", "text": "开" },
+        { "name": "water-shortage-fault", "text": "开" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "463980712",
+      "vendorId": "xiaomi",
+      "name": "网关",
+      "model": "lumi.gateway.mgl03",
+      "online": true,
+      "room": "客厅",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:gateway:0000A019:lumi-mgl03:2",
+      "live": [
+        { "name": "arming-mode", "text": "basic_arming" },
+        { "name": "customize-mode-1", "text": "关闭" },
+        { "name": "customize-mode-2", "text": "关闭" },
+        { "name": "customize-mode-3", "text": "关闭" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "962999487",
+      "vendorId": "xiaomi",
+      "name": "BOFON智能空调遥控器",
+      "model": "lmkj.acpartner.bf1001",
+      "online": false,
+      "room": "客厅",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:air-condition-outlet:0000A045:lmkj-bf1001:1",
+      "live": [
+        { "name": "开关", "text": "开" },
+        { "name": "开关", "text": "开" },
+        { "name": "开关", "text": "关" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "1065444711",
+      "vendorId": "xiaomi",
+      "name": "米家全能扫拖机器人 2",
+      "model": "xiaomi.vacuum.c102cn",
+      "online": true,
+      "room": "客厅",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:vacuum:0000A006:xiaomi-c102cn:1",
+      "live": [
+        { "name": "Device Fault", "text": "0" },
+        { "name": "状态", "text": "Charging Completed" },
+        { "name": "属性", "text": "Yes" },
+        { "name": "属性", "text": "0" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "12618261",
+      "vendorId": "xiaomi",
+      "name": "小米空气净化器2代",
+      "model": "zhimi.airpurifier.m1",
+      "online": false,
+      "room": "卧室",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:air-purifier:0000A007:zhimi-m1:1",
+      "live": [
+        { "name": "开关", "text": "关" },
+        { "name": "开关", "text": "开" },
+        { "name": "湿度", "text": "61%" },
+        { "name": "Indoor Temperature", "text": "27.3°C" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "765519391",
+      "vendorId": "xiaomi",
+      "name": "小米手环8 NFC版",
+      "model": "miwear.watch.m66nfc",
+      "online": false,
+      "room": "默认家庭",
+      "icon": "",
+      "specType": "",
+      "live": [],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "blt.3.108jgmvtc5400",
+      "vendorId": "xiaomi",
+      "name": "客厅蓝牙温湿度计",
+      "model": "cleargrass.sensor_ht.dk1",
+      "online": true,
+      "room": "客厅",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:temperature-humidity-sensor:0000A00A:cleargrass-dk1:1",
+      "live": [
+        { "name": "温度", "text": "19.2°C" },
+        { "name": "湿度", "text": "35.8%" },
+        { "name": "电量", "text": "91%" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "blt.3.11ihebhrg5g00",
+      "vendorId": "xiaomi",
+      "name": "次卧温湿度计",
+      "model": "miaomiaoce.sensor_ht.t2",
+      "online": true,
+      "room": "卧室",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:temperature-humidity-sensor:0000A00A:miaomiaoce-t2:1",
+      "live": [
+        { "name": "温度", "text": "17.8°C" },
+        { "name": "湿度", "text": "37.5%" },
+        { "name": "电量", "text": "100%" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "blt.3.11ihfeaq05c00",
+      "vendorId": "xiaomi",
+      "name": "主卧温湿度计",
+      "model": "miaomiaoce.sensor_ht.t2",
+      "online": true,
+      "room": "卧室",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:temperature-humidity-sensor:0000A00A:miaomiaoce-t2:1",
+      "live": [
+        { "name": "温度", "text": "19.7°C" },
+        { "name": "湿度", "text": "39.6%" },
+        { "name": "电量", "text": "100%" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "236098798",
+      "vendorId": "xiaomi",
+      "name": "净水器",
+      "model": "yunmi.waterpuri.lx8",
+      "online": true,
+      "room": "厨房",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:water-purifier:0000A013:yunmi-lx8:1",
+      "live": [
+        { "name": "状态", "text": "待机" },
+        { "name": "Total Dissolved Solids for Input Water", "text": "231" },
+        { "name": "Total Dissolved Solids for Output Water", "text": "16" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "289250173",
+      "vendorId": "xiaomi",
+      "name": "小爱音箱Play",
+      "model": "xiaomi.wifispeaker.lx05",
+      "online": false,
+      "room": "客厅",
+      "icon": "",
+      "specType": "urn:miot-spec-v2:device:speaker:0000A015:xiaomi-lx05:1",
+      "live": [
+        { "name": "Mute", "text": "开" },
+        { "name": "Playing State", "text": "待机" },
+        { "name": "Mute", "text": "关" }
+      ],
+      "accountId": "dcf0207e878cac8a2e"
+    },
+    {
+      "did": "83562883944931",
+      "vendorId": "midea",
+      "name": "滚筒洗衣机",
+      "model": "TG100V120WDG",
+      "online": true,
+      "room": "阳台",
+      "icon": "",
+      "live": [
+        { "name": "开关", "text": "关" },
+        { "name": "温度", "text": "40°" },
+        { "name": "智能洗", "text": "关" },
+        { "name": "蒸汽", "text": "关" }
+      ],
+      "accountId": "da539bad8808493aa9"
+    },
+    {
+      "did": "20890721020261",
+      "vendorId": "midea",
+      "name": "冰箱",
+      "model": "BCD-258WTPZM(E)",
+      "online": true,
+      "room": "厨房",
+      "icon": "",
+      "live": [
+        { "name": "冷藏开关", "text": "开" },
+        { "name": "冷冻开关", "text": "开" },
+        { "name": "冷藏温度", "text": "4°" },
+        { "name": "冷冻温度", "text": "-22°" }
+      ],
+      "accountId": "da539bad8808493aa9"
+    }
+  ],
+  "warnings": []
+}

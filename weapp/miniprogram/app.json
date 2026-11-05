@@ -19,11 +19,15 @@
     "list": [
       {
         "pagePath": "pages/devices/index",
-        "text": "设备"
+        "text": "设备",
+        "iconPath": "assets/tabbar/device.png",
+        "selectedIconPath": "assets/tabbar/device-active.png"
       },
       {
         "pagePath": "pages/settings/index",
-        "text": "接入"
+        "text": "设置",
+        "iconPath": "assets/tabbar/settings.png",
+        "selectedIconPath": "assets/tabbar/settings-active.png"
       }
     ]
   },

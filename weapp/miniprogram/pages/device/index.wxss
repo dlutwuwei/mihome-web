@@ -36,12 +36,12 @@
 .property-name { display: block; color: #404457; font-size: 27rpx; font-weight: 550; }
 .property-meta { display: block; margin-top: 6rpx; color: #b0b3c0; font-size: 19rpx; }
 .property-value { max-width: 50%; color: var(--primary); font-size: 27rpx; font-weight: 600; text-align: right; }
-.option-list { display: flex; flex-wrap: wrap; gap: 12rpx; margin-top: 22rpx; }
-.option-pill { min-height: 62rpx; font-size: 22rpx; }
+.option-list { display: flex; flex-wrap: wrap; margin-top: 22rpx; }
+.option-pill { min-height: 62rpx; margin: 0 12rpx 12rpx 0; font-size: 22rpx; }
 .property-slider { margin: 26rpx 0 4rpx; }
 .property-input { height: 76rpx; margin-top: 20rpx; padding: 0 22rpx; border-radius: 20rpx; background: #f5f6fa; font-size: 25rpx; }
-.action-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16rpx; margin-top: 20rpx; padding-top: 26rpx; border-top: 1rpx solid #eff0f5; }
-.action-button { display: flex; align-items: center; justify-content: center; min-height: 80rpx; padding: 0 18rpx; border-radius: 24rpx; background: var(--primary-soft); color: var(--primary); font-size: 24rpx; font-weight: 600; text-align: center; }
+.action-list { display: flex; flex-wrap: wrap; justify-content: space-between; margin-top: 20rpx; padding-top: 26rpx; border-top: 1rpx solid #eff0f5; }
+.action-button { display: flex; align-items: center; justify-content: center; width: 48%; min-height: 80rpx; margin-bottom: 16rpx; padding: 0 18rpx; border-radius: 24rpx; background: var(--primary-soft); color: var(--primary); font-size: 24rpx; font-weight: 600; text-align: center; }
 .action-button[disabled] { opacity: 0.45; }
 
 .detail-loading { padding-top: 10rpx; }

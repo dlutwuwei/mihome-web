@@ -1,4 +1,5 @@
 const assert = require("node:assert/strict");
+const { humidityOf, apparentTemperatureOf, comfortOf } = require("../miniprogram/utils/device");
 
 const storage = new Map([
   ["mihome.weapp.baseUrl", "http://127.0.0.1:8787"],
@@ -17,7 +18,7 @@ const detail = {
     online: true,
     room: "客厅",
     icon: "",
-    live: [{ name: "温度", text: "24°C" }],
+    live: [{ name: "温度", text: "24°C" }, { name: "湿度", text: "52%" }],
   },
   services: [{
     siid: 2,
@@ -44,7 +45,7 @@ global.wx = {
       } else if (path === "/api/open/devices") {
         options.success({ statusCode: 200, data: { devices: [detail.device, { ...detail.device, did: "light-1", name: "卧室台灯", room: "卧室" }] } });
       } else if (path === "/api/open/live") {
-        options.success({ statusCode: 200, data: { live: { "account one:did/1": [{ name: "温度", text: "24°C" }] } } });
+        options.success({ statusCode: 200, data: { live: { "account one:did/1": [{ name: "温度", text: "24°C" }, { name: "湿度", text: "52%" }] } } });
       } else if (path === "/api/open/devices/account%20one/did%2F1") {
         options.success({ statusCode: 200, data: detail });
       } else if (path === "/api/open/devices/account%20one/did%2F1/props") {
@@ -64,13 +65,43 @@ global.wx = {
 };
 
 (async () => {
-  const { deviceStore: store } = require("../miniprogram/stores/deviceStore");
+  const { deviceStore: store, temperatureTone } = require("../miniprogram/stores/deviceStore");
   assert.equal(store.configured, true);
   await store.loadDevices();
   assert.equal(store.devices.length, 2);
   assert.equal(store.onlineCount, 2);
   assert.equal(store.rooms.length, 3);
   assert.equal(store.devices[0].primaryLive, "24°C");
+  assert.equal(store.averageTemperature, 24);
+  assert.equal(store.averageHumidity, 52);
+  assert.equal(store.averageHumidityText, "52%");
+  assert.equal(store.apparentTemperature, 24);
+  assert.equal(store.comfortText, "体感舒适");
+  assert.equal(store.devices[0].humidity, 52);
+  assert.equal(humidityOf([{ name: "目标湿度", text: "70%" }, { name: "湿度", text: "44.4%" }]), 44.4);
+  assert.equal(humidityOf([{ name: "湿度", text: "120%" }]), null);
+  assert.equal(apparentTemperatureOf(25, 50), 25);
+  assert.ok(apparentTemperatureOf(30, 70) > 30);
+  assert.equal(comfortOf(5, 50), "体感寒冷");
+  assert.equal(comfortOf(18, 50), "体感微凉");
+  assert.equal(comfortOf(18, 80), "体感湿冷");
+  assert.equal(comfortOf(24, 20), "体感干燥");
+  assert.equal(comfortOf(24, 50), "体感舒适");
+  assert.equal(comfortOf(28, 70), "体感闷热");
+  assert.equal(comfortOf(31, 50), "体感炎热");
+  assert.equal(comfortOf(35, 80), "体感酷热");
+  assert.equal(comfortOf(null, 50), "");
+  assert.equal(store.heroTone, "hero-temp-mild");
+  assert.equal(temperatureTone(-2), "hero-temp-cold");
+  assert.equal(temperatureTone(11.9), "hero-temp-cold");
+  assert.equal(temperatureTone(12), "hero-temp-cool");
+  assert.equal(temperatureTone(19.9), "hero-temp-cool");
+  assert.equal(temperatureTone(20), "hero-temp-mild");
+  assert.equal(temperatureTone(25.9), "hero-temp-mild");
+  assert.equal(temperatureTone(26), "hero-temp-warm");
+  assert.equal(temperatureTone(29.9), "hero-temp-warm");
+  assert.equal(temperatureTone(30), "hero-temp-hot");
+  assert.equal(temperatureTone(null), "");
   store.setRoom("卧室");
   assert.equal(store.filteredDevices.length, 1);
   assert.equal(store.filteredDevices[0].name, "卧室台灯");
