@@ -1,0 +1,1 @@
+WeChat Mini Program front-end for the Mi Home smart home backend, exposing device listing, detail control, and settings via MobX state.

@@ -1,0 +1,13 @@
+schema_version: 1
+module_path: ""
+title: Smart Home Vendor Dashboard Monorepo
+scope:
+    - README.md
+    - .gitignore
+    - package.json
+    - tsconfig.json
+    - docs/
+    - public/
+source_files: []
+depends_on: []
+related_to: []

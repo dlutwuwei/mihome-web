@@ -1,1 +1,0 @@
-TypeScript; providers communicate with the rest of the app exclusively via the `VendorProvider` interface and the `registerVendor` registry entry point.

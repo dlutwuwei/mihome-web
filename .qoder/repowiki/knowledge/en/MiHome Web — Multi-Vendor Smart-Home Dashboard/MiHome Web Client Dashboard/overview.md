@@ -1,1 +1,0 @@
-React + Vite single-page dashboard for managing multi-vendor smart-home accounts, browsing devices, controlling properties/actions, and issuing API keys.

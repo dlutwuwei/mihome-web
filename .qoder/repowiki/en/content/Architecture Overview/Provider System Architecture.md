@@ -14,19 +14,34 @@
 - [pantum/index.ts](file://src/providers/pantum/index.ts)
 - [pantum/cloud.ts](file://src/providers/pantum/cloud.ts)
 - [errors.ts](file://src/core/errors.ts)
+- [controls/types.ts](file://src/controls/types.ts)
+- [controls/panel.ts](file://src/controls/panel.ts)
+- [controls/profiles.ts](file://src/controls/profiles.ts)
+- [controls/profiles/xiaomi.ts](file://src/controls/profiles/xiaomi.ts)
+- [controls/profiles/midea.ts](file://src/controls/profiles/midea.ts)
+- [controls/index.ts](file://src/controls/index.ts)
 </cite>
+
+## Update Summary
+**Changes Made**
+- Updated to reflect the new control panel architecture with VendorField abstraction pattern
+- Refactored Midea and Xiaomi providers to remove vendor-specific UI logic
+- Added comprehensive documentation for the three-layer control panel system
+- Updated provider implementation examples to show VendorField usage patterns
+- Added new sections covering profile-based configuration and control panel architecture
 
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [Project Structure](#project-structure)
 3. [Core Components](#core-components)
-4. [Architecture Overview](#architecture-overview)
-5. [Detailed Component Analysis](#detailed-component-analysis)
-6. [Dependency Analysis](#dependency-analysis)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting Guide](#troubleshooting-guide)
-9. [Conclusion](#conclusion)
-10. [Appendices](#appendices)
+4. [Control Panel Architecture](#control-panel-architecture)
+5. [Architecture Overview](#architecture-overview)
+6. [Detailed Component Analysis](#detailed-component-analysis)
+7. [Dependency Analysis](#dependency-analysis)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting Guide](#troubleshooting-guide)
+10. [Conclusion](#conclusion)
+11. [Appendices](#appendices)
 
 ## Introduction
 This document explains the provider system architecture that unifies multiple vendor integrations behind a single interface. The system centers on the `VendorProvider` contract, which standardizes authentication, device discovery, live status refresh, device detail inspection, property control, and action execution. A registry pattern enables dynamic registration and discovery of providers at bootstrap time.
@@ -36,10 +51,10 @@ The current implementation includes:
 - Midea: SMS and password login with Lua-style device state fields.
 - Pantum: SMS-only cloud printing integration with fixed device metadata and print actions.
 
-The goal is to make vendor-specific logic encapsulated while preserving consistent interfaces for routes, controls, and the frontend.
+**Updated** The system now uses a sophisticated control panel architecture that separates vendor logic from UI presentation through a three-layer design pattern.
 
 ## Project Structure
-The provider system lives under `src/providers`, with shared types and a core registry under `src/core`. Each vendor has its own folder containing authentication, device operations, and optional helpers.
+The provider system lives under `src/providers`, with shared types and a core registry under `src/core`. Each vendor has its own folder containing authentication, device operations, and optional helpers. The new control panel architecture is implemented under `src/controls`.
 
 ```mermaid
 graph TB
@@ -52,6 +67,11 @@ IDX["Provider Bootstrap<br/>register xiaomi / midea / pantum / demo"]
 XIA["Xiaomi Provider"]
 MID["Midea Provider"]
 PAN["Pantum Provider"]
+end
+subgraph "Control Panel"
+TYPES["VendorField Types<br/>DeviceProfile + FieldRule"]
+PANEL["buildPanel Engine<br/>profile resolution"]
+PROFILES["Profiles Registry<br/>xiaomi/midea/pantum"]
 end
 subgraph "Vendor Modules"
 XAUTH["Xiaomi Auth"]
@@ -69,6 +89,10 @@ XIA --> XDEV
 MID --> MAUTH
 MID --> MDEV
 PAN --> PCLOUD
+XDEV --> PANEL
+MDEV --> PANEL
+PANEL --> PROFILES
+PROFILES --> TYPES
 ERR -.-> XIA
 ERR -.-> MID
 ERR -.-> PAN
@@ -77,14 +101,14 @@ ERR -.-> PAN
 **Diagram sources**
 - [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
 - [index.ts:1-17](file://src/providers/index.ts#L1-L17)
-- [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
-- [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
-- [pantum/index.ts:1-112](file://src/providers/pantum/index.ts#L1-L112)
-- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+- [controls/index.ts:1-25](file://src/controls/index.ts#L1-L25)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
+- [controls/profiles.ts:74-124](file://src/controls/profiles.ts#L74-L124)
 
 **Section sources**
 - [index.ts:1-17](file://src/providers/index.ts#L1-L17)
 - [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
+- [controls/index.ts:1-25](file://src/controls/index.ts#L1-L25)
 
 ## Core Components
 The provider system is built around these core abstractions:
@@ -110,6 +134,67 @@ These components ensure that routes and controllers can call provider methods wi
 - [types.ts:1-144](file://src/providers/types.ts#L1-L144)
 - [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
 
+## Control Panel Architecture
+
+**New Section** The control panel architecture introduces a three-layer separation between vendor logic and UI presentation:
+
+### Layer 1: VendorField Abstraction
+Vendor providers now output `VendorField` objects representing raw device data with minimal UI hints:
+
+```typescript
+interface VendorField {
+  key: string;           // Stable identifier (e.g., "service.property" or lua field name)
+  raw: unknown;          // Unconverted device value
+  writable: boolean;     // Whether the field can be written
+  label?: string;        // Human-readable name
+  kind?: ControlKind;    // UI hint: switch, slider, select, etc.
+  unit?: string;         // Unit of measurement
+  range?: [number, number, number]; // Min, max, step
+  options?: ControlOption[]; // For select/segmented controls
+  group?: string;        // UI grouping
+  siid?: number;         // MIoT service ID
+  piid?: number;         // MIoT property ID
+  meta?: Record<string, unknown>; // Vendor-specific metadata
+}
+```
+
+### Layer 2: DeviceProfile Configuration
+Device profiles define UI behavior through configurable rules:
+
+```typescript
+interface DeviceProfile {
+  id: string;
+  vendor: string;
+  match?: ProfileMatch;  // Match by did, model, or specType
+  fields?: Record<string, FieldRule>; // Field transformation rules
+  omit?: string[];       // Fields to hide
+  order?: string[];      // Display order
+  groups?: Record<string, GroupConfig>; // UI grouping
+  actions?: Record<string, ActionConfig>; // Action configuration
+}
+```
+
+### Layer 3: buildPanel Resolution
+The `buildPanel` function combines vendor fields with profile rules to produce final UI-ready `DeviceDetail`:
+
+```mermaid
+flowchart TD
+VendorFields["VendorField[]<br/>Raw device data"] --> ProfileRules["DeviceProfile Rules<br/>UI configuration"]
+ProfileRules --> BuildPanel["buildPanel()<br/>Resolution engine"]
+BuildPanel --> ResolvedFields["ResolvedField[]<br/>UI-ready data"]
+ResolvedFields --> DeviceDetail["DeviceDetail<br/>Final UI structure"]
+```
+
+**Diagram sources**
+- [controls/types.ts:18-38](file://src/controls/types.ts#L18-L38)
+- [controls/types.ts:82-95](file://src/controls/types.ts#L82-L95)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
+
+**Section sources**
+- [controls/types.ts:1-114](file://src/controls/types.ts#L1-L114)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
+- [controls/profiles.ts:74-124](file://src/controls/profiles.ts#L74-L124)
+
 ## Architecture Overview
 The runtime flow is:
 1. Application bootstraps providers by calling bootstrapProviders.
@@ -118,28 +203,37 @@ The runtime flow is:
 4. The selected provider handles authentication, device listing, live refresh, detail retrieval, property writes, and actions.
 5. Errors are normalized through AppError so callers can detect auth failures and present user-friendly messages.
 
+**Updated** Device details now go through the control panel pipeline:
+1. Vendor providers fetch raw device data and convert it to VendorField arrays.
+2. buildPanel resolves profile rules and transforms fields into UI-ready format.
+3. Frontend receives DeviceDetail with stable IDs, explicit control types, and normalized values.
+
 ```mermaid
 sequenceDiagram
 participant Client as "Client"
 participant Route as "Route Layer"
 participant Reg as "Registry"
 participant Prov as "VendorProvider"
+participant Panel as "Control Panel"
 participant VendorAPI as "Vendor API"
-Client->>Route : Request device list
+Client->>Route : Request device detail
 Route->>Reg : getVendor(id)
 Reg-->>Route : VendorProvider instance
-Route->>Prov : listDevices(session)
-Prov->>VendorAPI : Fetch devices
+Route->>Prov : getDeviceDetail(session, did)
+Prov->>VendorAPI : Fetch device data
 VendorAPI-->>Prov : Raw device data
-Prov-->>Route : DeviceSummary[]
+Prov->>Panel : buildPanel(device, fields, actions)
+Panel->>Panel : Resolve profile rules
+Panel-->>Prov : DeviceDetail
+Prov-->>Route : DeviceDetail
 Route-->>Client : Response
 ```
 
 **Diagram sources**
 - [registry.ts:6-13](file://src/core/registry.ts#L6-L13)
-- [xiaomi/devices.ts:180-223](file://src/providers/xiaomi/devices.ts#L180-L223)
-- [midea/devices.ts:90-128](file://src/providers/midea/devices.ts#L90-L128)
-- [pantum/index.ts:52-90](file://src/providers/pantum/index.ts#L52-L90)
+- [xiaomi/devices.ts:247-266](file://src/providers/xiaomi/devices.ts#L247-L266)
+- [midea/devices.ts:149-156](file://src/providers/midea/devices.ts#L149-L156)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
 
 ## Detailed Component Analysis
 
@@ -252,6 +346,8 @@ Found --> |No| Throw["Throw unsupported vendor error"]
 ### Xiaomi Provider Implementation
 Xiaomi supports password and QR authentication, email 2FA, and MIoT spec-driven device models.
 
+**Updated** The Xiaomi provider now uses the control panel architecture:
+
 Authentication highlights:
 - Password login may return immediate success, require a captcha, or trigger email 2FA.
 - Email 2FA begins a ticket flow and verifies the code before completing login.
@@ -261,7 +357,7 @@ Authentication highlights:
 Device operations:
 - listDevices fetches home rooms and device lists, deduplicates devices, and caches them in session.devices.
 - refreshLive selects top live properties from MIoT spec and reads values in chunks.
-- getDeviceDetail builds a panel from spec-derived fields and actions, attaching current values and error codes.
+- getDeviceDetail builds VendorField arrays from MIoT spec and passes them to buildPanel.
 - setProperty and runAction call MIoT endpoints and translate vendor codes into AppError.
 
 ```mermaid
@@ -269,6 +365,7 @@ sequenceDiagram
 participant Client as "Client"
 participant Route as "Route"
 participant Xiaomi as "Xiaomi Provider"
+participant Panel as "Control Panel"
 participant Auth as "Xiaomi Auth"
 participant Devices as "Xiaomi Devices"
 participant MIoT as "MIoT API"
@@ -279,23 +376,22 @@ Auth->>MIoT : serviceLogin / serviceLoginAuth2
 MIoT-->>Auth : ssecurity/location or captcha/email
 Auth-->>Xiaomi : ok | captcha | email
 Xiaomi-->>Route : LoginOutcome
-Client->>Route : GET devices
-Route->>Xiaomi : listDevices(session)
-Xiaomi->>Devices : listDevices(...)
-Devices->>MIoT : homeroom / home_device_list
-MIoT-->>Devices : device rows
-Devices->>MIoT : prop/get (live props)
-MIoT-->>Devices : values
-Devices-->>Route : DeviceSummary[]
+Client->>Route : GET device detail
+Route->>Xiaomi : getDeviceDetail(session, did)
+Xiaomi->>Devices : getDeviceDetail(...)
+Devices->>MIoT : Fetch spec + properties
+MIoT-->>Devices : Spec + values
+Devices->>Panel : buildPanel(device, fields, actions)
+Panel-->>Devices : DeviceDetail
+Devices-->>Route : DeviceDetail
 ```
 
 **Diagram sources**
 - [xiaomi/auth.ts:33-91](file://src/providers/xiaomi/auth.ts#L33-L91)
 - [xiaomi/auth.ts:94-173](file://src/providers/xiaomi/auth.ts#L94-L173)
 - [xiaomi/auth.ts:175-223](file://src/providers/xiaomi/auth.ts#L175-L223)
-- [xiaomi/devices.ts:180-223](file://src/providers/xiaomi/devices.ts#L180-L223)
-- [xiaomi/devices.ts:225-245](file://src/providers/xiaomi/devices.ts#L225-L245)
 - [xiaomi/devices.ts:247-266](file://src/providers/xiaomi/devices.ts#L247-L266)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
 
 **Section sources**
 - [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
@@ -305,6 +401,8 @@ Devices-->>Route : DeviceSummary[]
 ### Midea Provider Implementation
 Midea supports SMS and password authentication, with device state modeled as Lua-like key-value pairs.
 
+**Updated** The Midea provider now uses the control panel architecture:
+
 Authentication highlights:
 - sendSms validates phone format, optionally requires captcha, and stores captcha body/type in pending state.
 - loginSms completes registration/login and extracts accessToken, userId, and sessionKey.
@@ -312,9 +410,9 @@ Authentication highlights:
 
 Device operations:
 - listDevices enumerates homes and appliances, normalizes device summaries, and caches them.
-- refreshLive reads device status per device and formats up to four live chips.
-- getDeviceDetail builds a panel from status fields, marking boolean-like fields as writable switches.
-- setProperty encodes field values and sends control commands.
+- refreshLive reads device status per device and formats up to four live chips using buildPanel.
+- getDeviceDetail converts status fields to VendorField arrays and passes them to buildPanel.
+- setProperty encodes field values using encodeFieldValue and sends control commands.
 - runAction is not supported and throws an action error.
 
 ```mermaid
@@ -322,6 +420,7 @@ sequenceDiagram
 participant Client as "Client"
 participant Route as "Route"
 participant Midea as "Midea Provider"
+participant Panel as "Control Panel"
 participant Auth as "Midea Auth"
 participant Devices as "Midea Devices"
 participant MideaAPI as "Midea API"
@@ -339,22 +438,21 @@ Auth->>MideaAPI : register/login
 MideaAPI-->>Auth : accessToken/userInfo
 Auth-->>Midea : VendorSession
 Midea-->>Route : LoginOutcome
-Client->>Route : GET devices
-Route->>Midea : listDevices(session)
-Midea->>Devices : listDevices(...)
-Devices->>MideaAPI : homegroup/list / appliance/home/list
-MideaAPI-->>Devices : home/appliance data
+Client->>Route : GET device detail
+Route->>Midea : getDeviceDetail(session, did)
+Midea->>Devices : getDeviceDetail(...)
 Devices->>MideaAPI : device/status/lua/get
-MideaAPI-->>Devices : status fields
-Devices-->>Route : DeviceSummary[]
+MideaAPI-->>Devices : Status fields
+Devices->>Panel : buildPanel(device, fieldsOf(status))
+Panel-->>Devices : DeviceDetail
+Devices-->>Route : DeviceDetail
 ```
 
 **Diagram sources**
 - [midea/auth.ts:51-86](file://src/providers/midea/auth.ts#L51-L86)
 - [midea/auth.ts:111-175](file://src/providers/midea/auth.ts#L111-L175)
-- [midea/devices.ts:90-128](file://src/providers/midea/devices.ts#L90-L128)
-- [midea/devices.ts:130-147](file://src/providers/midea/devices.ts#L130-L147)
 - [midea/devices.ts:149-156](file://src/providers/midea/devices.ts#L149-L156)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
 
 **Section sources**
 - [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
@@ -407,20 +505,27 @@ To add a new vendor:
 4. Export the provider instance.
 5. Register it in bootstrapProviders so routes can discover it.
 
+**Updated** When implementing device operations:
+- Convert raw device data to VendorField arrays representing field names, raw values, and writeability.
+- Use buildPanel to transform VendorField arrays into DeviceDetail with UI-ready properties.
+- Use encodeFieldValue for property writes to handle vendor-specific encoding.
+- Create device profiles in src/controls/profiles/ to define UI behavior.
+
 Recommended structure:
 - index.ts: export the provider object wiring auth and devices modules.
 - auth.ts: handle pending context creation and authentication flows.
-- devices.ts: implement listDevices, refreshLive, getDeviceDetail, setProperty, runAction.
+- devices.ts: implement listDevices, refreshLive, getDeviceDetail, setProperty, runAction using control panel architecture.
 - state.ts or api.ts: vendor-specific HTTP client, encryption, and token handling.
 
 When mapping vendor device properties to unified models:
-- For MIoT-style specs, derive fields and actions from spec services and properties.
-- For Lua-style states, infer writable boolean-like fields and expose raw values.
-- For cloud-only devices, expose fixed metadata and actions such as print.
+- For MIoT-style specs, derive VendorField arrays from spec services and properties.
+- For Lua-style states, infer writable boolean-like fields and expose raw values as VendorField arrays.
+- For cloud-only devices, expose fixed metadata and actions as VendorField arrays.
 
 **Section sources**
 - [index.ts:8-14](file://src/providers/index.ts#L8-L14)
 - [types.ts:105-143](file://src/providers/types.ts#L105-L143)
+- [controls/types.ts:18-38](file://src/controls/types.ts#L18-L38)
 
 ### Vendor-Specific Authentication Flows
 - Xiaomi:
@@ -447,51 +552,61 @@ Common patterns:
 - [pantum/index.ts:62-85](file://src/providers/pantum/index.ts#L62-L85)
 
 ### Mapping Vendor Properties to Unified Models
+
+**Updated** The mapping process now goes through the control panel architecture:
+
 - Xiaomi:
   - Uses MIoT spec URNs to derive stable keys like service.property.
   - Maps access modes to writable flags, value ranges, and option lists.
-  - Builds panels with groups and actions derived from spec services.
+  - Builds VendorField arrays from spec-derived fields and actions.
+  - Passes fields to buildPanel for final UI transformation.
+
 - Midea:
   - Treats each status field as a potential control if it looks boolean-like.
-  - Encodes field values back to vendor format when writing.
+  - Converts fields to VendorField arrays with appropriate metadata.
+  - Uses encodeFieldValue for writing back vendor-specific formats.
+
 - Pantum:
   - Exposes fixed fields like serial number and cloud status.
   - Provides a print action instead of property writes.
 
 ```mermaid
 flowchart TD
-VendorData["Vendor Device Data"] --> Normalize["Normalize to DeviceSummary"]
-Normalize --> SpecOrState{"Spec-driven or State-driven?"}
-SpecOrState --> |MIoT Spec| DeriveFields["Derive fields/actions from spec"]
-SpecOrState --> |Lua State| InferFields["Infer writable boolean-like fields"]
-SpecOrState --> |Cloud Fixed| BuildFixed["Build fixed metadata + actions"]
-DeriveFields --> Panel["buildPanel(DeviceSummary, fields, actions)"]
-InferFields --> Panel
-BuildFixed --> Panel
-Panel --> DeviceDetail["DeviceDetail returned to caller"]
+VendorData["Vendor Device Data"] --> VendorFields["Convert to VendorField[]"]
+VendorFields --> BuildPanel["buildPanel()"]
+BuildPanel --> Profiles["Resolve DeviceProfile rules"]
+Profiles --> ResolvedFields["ResolvedField[]"]
+ResolvedFields --> DeviceDetail["DeviceDetail returned to caller"]
 ```
 
 **Diagram sources**
 - [xiaomi/devices.ts:131-172](file://src/providers/xiaomi/devices.ts#L131-L172)
 - [midea/devices.ts:17-31](file://src/providers/midea/devices.ts#L17-L31)
-- [pantum/index.ts:95-104](file://src/providers/pantum/index.ts#L95-L104)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
 
 **Section sources**
 - [xiaomi/devices.ts:131-172](file://src/providers/xiaomi/devices.ts#L131-L172)
 - [midea/devices.ts:17-31](file://src/providers/midea/devices.ts#L17-L31)
 - [pantum/index.ts:95-104](file://src/providers/pantum/index.ts#L95-L104)
+- [controls/panel.ts:102-154](file://src/controls/panel.ts#L102-L154)
 
 ## Dependency Analysis
 The provider layer depends on:
 - Core registry for provider discovery.
-- Control profiles for building panels and encoding field values.
+- Control panel architecture for device detail generation.
 - Vendor-specific HTTP clients, crypto utilities, and state managers.
 - Error utilities for consistent error propagation and auth failure detection.
+
+**Updated** The dependency graph now includes the control panel system:
 
 ```mermaid
 graph LR
 Types["types.ts"] --> Registry["registry.ts"]
 Registry --> ProvidersIndex["providers/index.ts"]
+ProvidersIndex --> ControlsIndex["controls/index.ts"]
+ControlsIndex --> Profiles["profiles.ts"]
+Profiles --> XiaomiProfiles["profiles/xiaomi.ts"]
+Profiles --> MideaProfiles["profiles/midea.ts"]
 ProvidersIndex --> XiaomiIdx["xiaomi/index.ts"]
 ProvidersIndex --> MideaIdx["midea/index.ts"]
 ProvidersIndex --> PantumIdx["pantum/index.ts"]
@@ -500,6 +615,8 @@ XiaomiIdx --> XiaomiDev["xiaomi/devices.ts"]
 MideaIdx --> MideaAuth["midea/auth.ts"]
 MideaIdx --> MideaDev["midea/devices.ts"]
 PantumIdx --> PantumCloud["pantum/cloud.ts"]
+XiaomiDev --> ControlsIndex
+MideaDev --> ControlsIndex
 Errors["errors.ts"] --> XiaomiDev
 Errors --> MideaDev
 Errors --> PantumIdx
@@ -509,14 +626,15 @@ Errors --> PantumIdx
 - [types.ts:1-144](file://src/providers/types.ts#L1-L144)
 - [registry.ts:1-24](file://src/core/registry.ts#L1-L24)
 - [index.ts:1-17](file://src/providers/index.ts#L1-L17)
-- [xiaomi/index.ts:1-30](file://src/providers/xiaomi/index.ts#L1-L30)
-- [midea/index.ts:1-27](file://src/providers/midea/index.ts#L1-L27)
-- [pantum/index.ts:1-112](file://src/providers/pantum/index.ts#L1-L112)
-- [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+- [controls/index.ts:1-25](file://src/controls/index.ts#L1-L25)
+- [controls/profiles.ts:1-196](file://src/controls/profiles.ts#L1-L196)
+- [controls/profiles/xiaomi.ts:1-41](file://src/controls/profiles/xiaomi.ts#L1-L41)
+- [controls/profiles/midea.ts:1-227](file://src/controls/profiles/midea.ts#L1-L227)
 
 **Section sources**
 - [index.ts:1-17](file://src/providers/index.ts#L1-L17)
 - [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
+- [controls/index.ts:1-25](file://src/controls/index.ts#L1-L25)
 
 ## Performance Considerations
 - Batched property reads: Xiaomi chunks property reads into groups of 16 to reduce API calls.
@@ -524,12 +642,19 @@ Errors --> PantumIdx
 - Parallel live refresh: Midea reads device statuses concurrently using Promise.all.
 - Deduplication: Both Xiaomi and Midea deduplicate devices by did to prevent duplicates.
 - Lightweight session checks: Vendors implement minimal endpoints to validate sessions without heavy payloads.
+- Profile caching: Control panel profiles are cached and reloaded when files change.
+
+**Updated** Additional performance considerations:
+- VendorField arrays are lightweight and don't include UI rendering overhead.
+- buildPanel resolution is optimized with profile tiering and pattern matching.
+- Profile rules are resolved once per device and cached during the request lifecycle.
 
 Recommendations:
 - Add rate limiting per vendor to respect API quotas.
 - Introduce retry policies with exponential backoff for transient network errors.
 - Cache device lists with TTL and invalidate on auth changes.
 - Debounce rapid property writes to avoid flooding vendor APIs.
+- Monitor profile resolution performance for complex device configurations.
 
 [No sources needed since this section provides general guidance]
 
@@ -546,11 +671,27 @@ Common issues and strategies:
   - Xiaomi and Midea translate vendor response codes into AppError with actionable messages.
 - Cloud printing errors:
   - Pantum logs detailed error responses and maps OSS/signature issues to user-facing errors.
+- Control panel issues:
+  - Check if device profiles are properly registered via bootstrapProfiles().
+  - Verify VendorField arrays contain required fields (key, raw, writable).
+  - Ensure buildPanel is called with proper device and field arrays.
+
+**Updated** New troubleshooting areas:
+- Profile resolution problems:
+  - Check if profiles are loaded from correct directory (data/profiles).
+  - Verify profile JSON syntax and required fields (id, vendor).
+  - Debug profile matching using matchesPattern() for wildcard patterns.
+- Field transformation issues:
+  - Inspect ResolvedField output from buildPanel for proper UI types.
+  - Verify codec transformations work correctly for vendor-specific formats.
+  - Check that encodeFieldValue produces correct vendor payload formats.
 
 Best practices:
 - Always wrap vendor API calls with AppError to preserve codes and statuses.
 - Surface public errors via toPublicError for consistent client-side handling.
 - Log sensitive data carefully; mask tokens and secrets in error logs.
+- Test control panel transformations with sample VendorField arrays.
+- Validate profile configurations before deployment.
 
 **Section sources**
 - [errors.ts:1-38](file://src/core/errors.ts#L1-L38)
@@ -558,11 +699,16 @@ Best practices:
 - [midea/devices.ts:158-179](file://src/providers/midea/devices.ts#L158-L179)
 - [pantum/index.ts:105-110](file://src/providers/pantum/index.ts#L105-L110)
 - [pantum/cloud.ts:143-176](file://src/providers/pantum/cloud.ts#L143-L176)
+- [controls/profiles.ts:136-143](file://src/controls/profiles.ts#L136-L143)
 
 ## Conclusion
-The provider system delivers a clean abstraction over diverse vendor ecosystems. By enforcing a strict VendorProvider contract and leveraging a registry for dynamic discovery, the application can support multiple vendors with consistent behavior. Xiaomi’s MIoT spec-driven approach, Midea’s Lua-style state model, and Pantum’s cloud-printing focus illustrate how vendor-specific logic is encapsulated while maintaining uniform interfaces for device management and control.
+The provider system delivers a clean abstraction over diverse vendor ecosystems. By enforcing a strict VendorProvider contract and leveraging a registry for dynamic discovery, the application can support multiple vendors with consistent behavior. The new control panel architecture further enhances this by separating vendor logic from UI presentation through the VendorField abstraction pattern.
 
-Adopting standardized error handling, cautious caching, and rate-limiting will improve reliability and scalability. Testing should cover authentication flows, device listing, live refresh, property writes, and action execution for each vendor.
+Xiaomi's MIoT spec-driven approach, Midea's Lua-style state model, and Pantum's cloud-printing focus illustrate how vendor-specific logic is encapsulated while maintaining uniform interfaces for device management and control. The three-layer control panel system (VendorField → DeviceProfile → DeviceDetail) provides flexible, configurable UI behavior without coupling it to vendor implementations.
+
+Adopting standardized error handling, cautious caching, and rate-limiting will improve reliability and scalability. Testing should cover authentication flows, device listing, live refresh, property writes, action execution, and control panel transformations for each vendor.
+
+**Updated** The refactoring to use the control panel architecture makes the system more maintainable and extensible, allowing UI behavior to be configured independently from vendor logic through device profiles.
 
 [No sources needed since this section summarizes without analyzing specific files]
 
@@ -572,10 +718,55 @@ Adopting standardized error handling, cautious caching, and rate-limiting will i
 Steps:
 1. Create a folder under src/providers with index.ts, auth.ts, devices.ts, and optional helpers.
 2. Implement VendorProvider methods according to vendor capabilities.
-3. Export the provider instance from index.ts.
-4. Register it in bootstrapProviders.
-5. Test authentication, device listing, live refresh, property writes, and actions.
+3. In device operations, convert raw data to VendorField arrays and use buildPanel for device details.
+4. Export the provider instance from index.ts.
+5. Register it in bootstrapProviders.
+6. Create device profiles in src/controls/profiles/ to define UI behavior.
+7. Test authentication, device listing, live refresh, property writes, actions, and control panel transformations.
+
+**Updated** Example VendorField implementation:
+
+```typescript
+// For MIoT-style devices (like Xiaomi)
+function fieldsFromSpec(spec): VendorField[] {
+  return spec.services.flatMap(service => 
+    service.properties.map(prop => ({
+      key: `${service.iid}.${prop.iid}`,
+      raw: null, // Will be filled with actual values
+      writable: prop.access.includes('write'),
+      kind: prop.format === 'bool' ? 'switch' : undefined,
+      unit: UNITS[prop.unit] || '',
+      range: prop['value-range'],
+      options: prop['value-list']?.map(item => ({
+        value: item.value,
+        name: item.description || String(item.value)
+      })),
+      group: labelOf(service.description),
+      siid: service.iid,
+      piid: prop.iid
+    }))
+  );
+}
+
+// For Lua-style devices (like Midea)
+function fieldsOf(status): VendorField[] {
+  return Object.entries(status).flatMap(([key, value]) => {
+    if (!['string', 'number', 'boolean'].includes(typeof value)) return [];
+    const command = boolShape(value);
+    return [{
+      key,
+      raw: value,
+      writable: command,
+      kind: command ? 'switch' : undefined,
+      meta: { asText: typeof value === 'string' }
+    }];
+  });
+}
+```
 
 **Section sources**
 - [index.ts:8-14](file://src/providers/index.ts#L8-L14)
 - [types.ts:105-143](file://src/providers/types.ts#L105-L143)
+- [controls/types.ts:18-38](file://src/controls/types.ts#L18-L38)
+- [xiaomi/devices.ts:131-172](file://src/providers/xiaomi/devices.ts#L131-L172)
+- [midea/devices.ts:17-31](file://src/providers/midea/devices.ts#L17-L31)

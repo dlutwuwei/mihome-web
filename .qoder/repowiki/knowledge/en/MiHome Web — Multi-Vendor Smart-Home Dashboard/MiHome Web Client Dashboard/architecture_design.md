@@ -1,9 +1,0 @@
-Single React application bootstrapped via `main.tsx` → `App.tsx` → `pages/Home.tsx`, with feature UI split into `components/` (ApiKeyManager, DevicePanel, PropRow, VendorLogin) and shared logic in `utils/`.
-
-- Data layer: `utils/api.ts` wraps `fetch` with three helpers — `api` (JSON body, same-origin cookies), `apiBearer` (Authorization header for open endpoints), and `apiForm` (FormData); all return typed `Promise<T>` and throw on non-OK responses. `utils/device.ts` and `utils/present.ts` provide device keying, path building, and display formatting consumed by Home.
-- State model: `types.ts` is the single source of truth for domain shapes (`Account`, `Device`, `DeviceDetail`, `VendorInfo`, `DeviceProp`, `DeviceAction`, `ApiKeyRow`, `AuditRow`) plus a discriminated union helper `isOkSession` used across login flows.
-- App shell: `App.tsx` fetches `/api/vendors` and `/api/me`, injects a built-in Midea vendor as fallback, then renders `Home` with accounts/vendors as props.
-- Home orchestrates polling: `/api/devices/live` every 8 s and `/api/accounts/status` every 5 min, gated by `document.hidden` and an inflight flag; it owns account/vendor/room filters, device list state, and the detail panel overlay.
-- VendorLogin handles three auth modes (password / sms / qr) driven by `VendorInfo.authModes`, with QR polling via `/api/login/qr/poll` and captcha/email-code branching based on server response shape.
-- DevicePanel renders services/properties/actions from the IoT spec (`siid`/`piid`/`aiid`), dispatches property writes and actions through `api`, and has a special print action that uploads PDF/JPEG/PNG via FormData.
-- Dependency direction is strictly one-way: components → utils → types; no cross-component imports except Home importing all leaf components.

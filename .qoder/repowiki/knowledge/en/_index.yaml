@@ -3,11 +3,11 @@ schema_version: 1
 locale: en-US
 branch: main
 nodes_managed: true
-exported_at: "2026-11-05T03:18:05Z"
+exported_at: "2026-11-05T07:18:07Z"
 modules:
     "":
-        dir_name: MiHome Web — Multi-Vendor Smart-Home Dashboard
-        title: MiHome Web — Multi-Vendor Smart-Home Dashboard
+        dir_name: Smart Home Vendor Dashboard Monorepo
+        title: Smart Home Vendor Dashboard Monorepo
         scope:
             - README.md
             - .gitignore
@@ -22,11 +22,12 @@ modules:
             - providers
             - routes
             - server_core
+            - weapp
         depends_on: []
         related_to: []
     client:
-        dir_name: MiHome Web Client Dashboard
-        title: MiHome Web Client Dashboard
+        dir_name: Smart Home Vendor Dashboard (React + Vite Client)
+        title: Smart Home Vendor Dashboard (React + Vite Client)
         scope:
             - client/
         source_files: []
@@ -35,8 +36,8 @@ modules:
         related_to:
             - path: routes
     controls:
-        dir_name: Device Control Profiles & Panel Rendering
-        title: Device Control Profiles & Panel Rendering
+        dir_name: Device Control Panel Builder & Profile System
+        title: Device Control Panel Builder & Profile System
         scope:
             - src/controls/
         source_files: []
@@ -44,8 +45,8 @@ modules:
         depends_on: []
         related_to: []
     providers:
-        dir_name: Vendor Providers Registry
-        title: Vendor Providers Registry
+        dir_name: Vendor Provider Registry
+        title: Vendor Provider Registry
         scope:
             - src/providers/
         source_files: []
@@ -54,8 +55,7 @@ modules:
             - providers/pantum_demo_providers
             - providers/xiaomi_provider
         depends_on: []
-        related_to:
-            - path: server_core
+        related_to: []
     providers/midea_provider:
         dir_name: Midea (美的美居) Vendor Provider
         title: Midea (美的美居) Vendor Provider
@@ -85,8 +85,8 @@ modules:
         depends_on: []
         related_to: []
     routes:
-        dir_name: Express Route Modules (Auth, Devices, API Keys, Profiles, Meta)
-        title: Express Route Modules (Auth, Devices, API Keys, Profiles, Meta)
+        dir_name: HTTP API Route Modules
+        title: HTTP API Route Modules
         scope:
             - src/routes/
         source_files: []
@@ -94,9 +94,10 @@ modules:
         depends_on: []
         related_to:
             - path: client
+            - path: weapp
     server_core:
-        dir_name: Server Core & Express Application Bootstrap
-        title: Server Core & Express Application Bootstrap
+        dir_name: Express Server Bootstrap & Core Persistence Layer
+        title: Express Server Bootstrap & Core Persistence Layer
         scope:
             - src/core/
             - src/app.ts
@@ -104,5 +105,14 @@ modules:
         source_files: []
         children: []
         depends_on: []
+        related_to: []
+    weapp:
+        dir_name: Mi Home Smart Home WeChat Mini Program
+        title: Mi Home Smart Home WeChat Mini Program
+        scope:
+            - weapp/
+        source_files: []
+        children: []
+        depends_on: []
         related_to:
-            - path: providers
+            - path: routes

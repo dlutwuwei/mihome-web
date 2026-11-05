@@ -1,1 +1,0 @@
-The process listens on `PORT` (default 8787) bound to `HOST` (default `127.0.0.1`). Runtime state is written to `data/api-keys.json` and `data/hubs.json` under the repo root; these files are created lazily on first mutation.

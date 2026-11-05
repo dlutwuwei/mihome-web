@@ -1,1 +1,0 @@
-Aggregates vendor-specific smart-home adapters (Xiaomi, Midea, Pantum, Demo) behind a shared VendorProvider interface and registers them with the core registry.

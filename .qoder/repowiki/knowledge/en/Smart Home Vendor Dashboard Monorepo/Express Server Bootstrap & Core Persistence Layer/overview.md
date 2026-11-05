@@ -1,0 +1,1 @@
+Bootstraps the Express HTTP server and provides shared server-side primitives: API-key auth with SQLite persistence, hub/session state, vendor registry, error types, and account health probing.

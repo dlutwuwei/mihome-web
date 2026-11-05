@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: weapp
+title: Mi Home Smart Home WeChat Mini Program
+scope:
+    - weapp/
+source_files: []
+depends_on: []
+related_to:
+    - path: routes

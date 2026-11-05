@@ -1,0 +1,1 @@
+WeChat Mini Program framework with MobX (`mobx-miniprogram` v6.12.3) for reactive state and `mobx-miniprogram-bindings` v7.0.1 for view bindings; dependencies installed via npm into `miniprogram_npm/`.

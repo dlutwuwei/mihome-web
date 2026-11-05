@@ -1,0 +1,6 @@
+- Persistent state modules resolve their data path via `path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../data/...")` so paths are anchored to the source file, not process CWD.
+- In-memory stores use module-level `Map`s keyed by string identifiers, with public getters returning shallow copies or view objects that strip sensitive fields (e.g. `secretHash` filtered out by `publicRow`).
+- Atomic JSON writes go through a temp file named `<store>.${process.pid}.tmp` written with `mode 0o600`, then `fs.renameSync` to the target path.
+- Errors are raised as `new AppError(message, code, status)` and surfaced to clients through `toPublicError`, with `isAuthFailure` used to distinguish login-expired errors from transient/vendor failures.
+- Vendor capabilities are accessed exclusively through `registry.ts`'s `getVendor(id)`, which throws an `AppError` with code `VENDOR` for unknown ids.
+- Secrets are never stored in plaintext: API keys are hashed with SHA-256 before DB insertion and compared via a custom `timingSafeEqualHex` helper.

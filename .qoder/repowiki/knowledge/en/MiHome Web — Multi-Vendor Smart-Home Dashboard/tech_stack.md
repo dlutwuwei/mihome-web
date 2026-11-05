@@ -1,1 +1,0 @@
-Node.js ESM + TypeScript with `tsx` for dev/start; Express 4 as the single HTTP server; Vite builds the React SPA into `public/`; busboy handles multipart uploads.

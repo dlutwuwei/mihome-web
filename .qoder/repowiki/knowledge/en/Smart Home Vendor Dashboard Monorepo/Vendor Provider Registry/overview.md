@@ -1,0 +1,1 @@
+Aggregates vendor-specific smart-home adapters behind a shared VendorProvider interface and registers them with the core registry for uniform discovery.

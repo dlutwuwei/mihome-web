@@ -1,0 +1,1 @@
+Express.js for HTTP; Node.js built-in `crypto` (SHA-256, randomBytes, timingSafeEqual) and `fs`; `node:sqlite` `DatabaseSync` with WAL journaling for API key and audit storage; ESM-only project using `.js` imports and `import.meta.url`.

@@ -1,1 +1,0 @@
-Express.js for HTTP; Node.js built-in `crypto` (SHA-256, randomBytes, timingSafeEqual) and `fs` for persistent JSON stores; ESM-only project (`import.meta.url`, `.js` imports).

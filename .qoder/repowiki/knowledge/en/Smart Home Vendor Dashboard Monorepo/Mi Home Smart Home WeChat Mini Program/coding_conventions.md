@@ -1,0 +1,5 @@
+- Async mutations in the store wrap observable updates in `runInAction` blocks so MobX reactivity is triggered inside native Promises.
+- Concurrent async operations use an incrementing generation counter (e.g. `devicesGeneration`, `detailGeneration`) compared after `runInAction` to discard stale results from cancelled requests.
+- User-facing errors are surfaced on dedicated fields (`error`, `detailError`, `warning`) rather than thrown to the UI layer, and cleared by a shared `clearError` action.
+- API endpoints are expressed as small wrapper functions over a single `request(path, options)` helper that injects the `Authorization: Bearer <apiKey>` header.
+- Configuration (baseUrl, apiKey) is persisted through `wx.getStorageSync`/`setStorageSync` with keys prefixed by `mihome.weapp.` and normalized via `normalizeBaseUrl` before storage.

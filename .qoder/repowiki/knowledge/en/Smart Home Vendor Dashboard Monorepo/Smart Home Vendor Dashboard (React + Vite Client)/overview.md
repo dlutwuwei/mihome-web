@@ -1,0 +1,1 @@
+Single-page React dashboard for authenticating to multi-vendor smart-home backends, browsing devices, controlling properties/actions, and issuing API keys.

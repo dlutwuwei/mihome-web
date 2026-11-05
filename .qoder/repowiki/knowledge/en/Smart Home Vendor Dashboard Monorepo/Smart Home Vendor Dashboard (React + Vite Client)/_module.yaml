@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: client
+title: Smart Home Vendor Dashboard (React + Vite Client)
+scope:
+    - client/
+source_files: []
+depends_on: []
+related_to:
+    - path: routes

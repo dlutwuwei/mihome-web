@@ -1,0 +1,1 @@
+Run tests with `npm test` (executes `tests/store.test.js`) or `npm run check` (executes `tests/check.js`); the project also ships `project.config.json` and `project.private.config.json` for the WeChat DevTools.

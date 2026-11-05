@@ -1,0 +1,1 @@
+Process listens on `PORT` (default 8787) bound to `HOST` (default `127.0.0.1`). Persistent data is written to `data/mihome.db` (SQLite) and `data/hubs.json` under the repo root; `MIHOME_DATA_DIR` overrides the data directory. The `data/` directory is created lazily with mode `0o700`, and files are written atomically with mode `0o600`.

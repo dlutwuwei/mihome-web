@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: controls
+title: Device Control Panel Builder & Profile System
+scope:
+    - src/controls/
+source_files: []
+depends_on: []
+related_to: []

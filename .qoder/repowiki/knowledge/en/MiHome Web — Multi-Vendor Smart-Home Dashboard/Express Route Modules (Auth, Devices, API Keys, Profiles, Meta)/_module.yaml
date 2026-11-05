@@ -1,9 +1,0 @@
-schema_version: 1
-module_path: routes
-title: Express Route Modules (Auth, Devices, API Keys, Profiles, Meta)
-scope:
-    - src/routes/
-source_files: []
-depends_on: []
-related_to:
-    - path: client

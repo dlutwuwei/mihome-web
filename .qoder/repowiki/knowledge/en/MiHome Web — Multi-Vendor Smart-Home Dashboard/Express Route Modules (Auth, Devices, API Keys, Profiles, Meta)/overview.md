@@ -1,1 +1,0 @@
-Express Router modules exposing the HTTP API surface for vendor authentication, device management, API key administration, profile editing, and metadata endpoints.

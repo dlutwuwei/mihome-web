@@ -1,0 +1,6 @@
+- Server responses are typed via generic type parameters on `api<T>()` calls rather than casting after the call.
+- Error messages are surfaced through the shared `errorText(err)` helper so user-facing strings stay consistent across components.
+- Long-running intervals (device live polling, status checks, QR polling) are guarded by a local `stop` flag plus an `inflight` flag and a `detailSeq` counter to discard stale updates after unmount or navigation.
+- Polling loops listen to `document.visibilitychange` and skip work while `document.hidden` is true, clearing timers and listeners in the effect cleanup.
+- Domain data lives exclusively in `types.ts` and is imported as named types by both pages and components, keeping component files free of inline interface definitions.
+- Vendor-specific behavior (auth modes, region lists, hardcoded hints like pantum/midea/demo) is driven by `VendorInfo` fields rather than hard-coded branches inside the UI.
