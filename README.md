@@ -94,3 +94,48 @@
 - 同一 IP 连续无效 Key 请求会被限流（30 秒），有效请求不会计入失败次数，避免明文 Key 被暴力探测。
 - 开放接口响应带 `Cache-Control: no-store`，避免设备数据和鉴权结果被缓存。
 - Key 格式 `mihome_<id>_<48hex>`，界面只展示前缀；撤销 / 停用 / 过期立即生效。
+
+## 本地开发：用 Cloudflare Tunnel 获取 HTTPS 地址
+
+小程序真机调试或远程联调时，用 Cloudflare Tunnel 把本机服务暴露成公网 HTTPS 地址，
+不需要公网 IP、端口映射，也不会把家里端口直接暴露出去。
+
+先安装 cloudflared：
+
+```bash
+brew install cloudflared
+```
+
+Linux 按官方文档安装：
+<https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/>
+
+终端 A 启动服务，终端 B 启动隧道：
+
+```bash
+npm run dev
+npm run tunnel
+```
+
+脚本会自动执行 `cloudflared tunnel --url http://127.0.0.1:8787`，并在拿到地址后输出：
+
+```text
+ Cloudflare Tunnel 已就绪
+ 公网地址: https://xxxx-xxxx.trycloudflare.com
+ 本地服务: http://127.0.0.1:8787
+```
+
+把公网地址填到小程序「接入」页即可；当前地址同时写入 `data/tunnel-url.txt`（未纳入版本控制）。
+TryCloudflare 地址每次启动都会变化，微信开发者工具需要勾选「不校验合法域名」；
+正式环境请在微信后台配置固定域名。
+
+可选：接入 Zero Trust 固定隧道，地址不再变化。
+
+```bash
+# 在 Zero Trust 控制台创建 Tunnel 后拿到的令牌
+TUNNEL_TOKEN=<token> TUNNEL_HOSTNAME=https://home.example.com npm run tunnel
+
+# 或使用本机已 cloudflared login 的命名隧道
+TUNNEL_NAME=mihome TUNNEL_HOSTNAME=https://home.example.com npm run tunnel
+```
+
+端口不同时用 `PORT=8788 npm run tunnel`，目标地址也可用 `TUNNEL_TARGET_URL` 覆盖。
