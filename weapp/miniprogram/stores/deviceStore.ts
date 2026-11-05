@@ -60,6 +60,8 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
   detailError: "",
   busyKey: "",
   actionBusyKey: "",
+  confirmed: {},
+  featuredRevision: 0,
 
   get configured(): boolean {
     return Boolean(this.baseUrl && this.apiKey);
@@ -178,7 +180,11 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
   },
 
   get featuredProperty() {
-    return this.featuredKey ? findProperty(this.services, this.featuredKey) : null;
+    // 绑定只跟踪 getter 里读到的 observable：拖动预览改的是属性值本身，
+    // 这里读一下 revision 并返回新对象，reaction 才会重绘总览表盘。
+    void this.featuredRevision;
+    const property = this.featuredKey ? findProperty(this.services, this.featuredKey) : null;
+    return property ? { ...property } : null;
   },
 
   updateBaseUrl: action(function (this: DeviceStore, value: string): void {
@@ -295,6 +301,8 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     this.detailLoading = false;
     this.busyKey = "";
     this.actionBusyKey = "";
+    this.confirmed = {};
+    this.featuredRevision += 1;
   }),
 
   loadDeviceDetail: action(async function (this: DeviceStore, accountId: string, did: string): Promise<void> {
@@ -305,14 +313,21 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     this.detail = null;
     this.services = [];
     this.featuredKey = "";
+    this.confirmed = {};
     try {
       const detail = await api.getDeviceDetail(accountId, did);
       const decorated = decorateServices(detail.services || []);
+      const confirmed: Record<string, unknown> = {};
+      for (const service of decorated.services) {
+        for (const property of service.properties) confirmed[property.key] = property.value;
+      }
       runInAction(() => {
         if (generation !== detailGeneration) return;
         this.detail = { ...detail, device: decorateDevice(detail.device, 0) };
         this.services = decorated.services;
         this.featuredKey = decorated.featuredKey;
+        this.confirmed = confirmed;
+        this.featuredRevision += 1;
       });
     } catch (error) {
       runInAction(() => {
@@ -331,6 +346,9 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     if (!property) return;
     property.value = property.hasRange ? clampPropertyValue(property, value) : value;
     updatePropertyView(property);
+    // services 是深层 observable，但 createStoreBindings 只盯数组引用，
+    // 嵌套属性的变化不会触发 setData；总览表盘靠 revision 单独刷新。
+    if (key === this.featuredKey) this.featuredRevision += 1;
   }),
 
   writeProperty: action(async function (this: DeviceStore, key: string, value: unknown): Promise<void> {
@@ -339,18 +357,28 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     const property = findProperty(this.services, key);
     if (!property || !property.writable || !this.detail) return;
     const nextValue = property.hasRange ? clampPropertyValue(property, value) : value;
-    if (property.value === nextValue) return;
-    const previous = property.value;
+    // property.value 可能已被拖动预览改过，不能拿它判断“值没变”，
+    // 否则滑块/表盘松手后永远跳过写入。
+    const known = Object.prototype.hasOwnProperty.call(this.confirmed, key) ? this.confirmed[key] : property.value;
+    if (known === nextValue) return;
+    // 失败时回到设备确认过的值，而不是可能悬在半路的拖动预览值
+    const previous = known;
     const accountId = this.detail.device.accountId;
     const did = this.detail.device.did;
     this.busyKey = key;
     this.detailError = "";
     this.previewProperty(key, nextValue);
+    // 换成新的数组引用，让绑定把开关/选项/滑块的新值同步到视图
+    this.services = this.services.slice();
     try {
-      await api.setProperty(accountId, did, property, property.value);
+      await api.setProperty(accountId, did, property, nextValue);
+      runInAction(() => {
+        this.confirmed[key] = nextValue;
+      });
     } catch (error) {
       runInAction(() => {
         this.previewProperty(key, previous);
+        this.services = this.services.slice();
         this.detailError = errorMessage(error, "属性写入失败");
       });
       throw error;

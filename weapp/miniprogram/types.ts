@@ -181,6 +181,10 @@ export interface DeviceStore {
   detailError: string;
   busyKey: string;
   actionBusyKey: string;
+  /** 设备确认过的属性值，用来区分“刚拖动预览的值”和真正的写入 */
+  confirmed: Record<string, unknown>;
+  /** 拖动总览表盘时递增，让 featuredProperty 绑定跟着刷新 */
+  featuredRevision: number;
 
   readonly configured: boolean;
   readonly scopes: string[];

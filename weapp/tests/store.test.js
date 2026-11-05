@@ -134,6 +134,16 @@ global.wx = {
   assert.ok(requests.every((request) => !request.url.includes("apiKey=")));
   assert.ok(requests.some((request) => request.url.includes("account%20one/did%2F1")));
 
+  // 回归：拖动时先预览、松手后写同一个值，不能因为 property.value 已相等就跳过请求
+  store.previewProperty("2:1", 30);
+  await store.writeProperty("2:1", 30);
+  assert.equal(store.featuredProperty.value, 30);
+  const draggedRequest = requests.filter((request) => request.method === "POST").slice(-1)[0];
+  assert.deepEqual(draggedRequest.data, { siid: 2, piid: 1, id: undefined, value: 30 });
+  const beforeDup = requests.length;
+  await store.writeProperty("2:1", 30);
+  assert.equal(requests.length, beforeDup, "设备已确认相同值时不再重复写入");
+
   store.info = { ...store.info, scopes: ["devices:read"] };
   await assert.rejects(store.writeProperty("2:1", 20), /devices:control/);
   store.clearConnection();
