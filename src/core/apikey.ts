@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
 
 /** 开放 API 的授权范围。 */
@@ -24,19 +25,41 @@ export interface ApiKeyRow {
   requestCount: number;
 }
 
-/** 存储的一份 Key，secretHash 是明文 Key 的 SHA-256。 */
-interface StoredKey {
+interface KeyRecord {
+  hub_id: string;
   id: string;
   prefix: string;
-  secretHash: string;
+  secret_hash: string;
   name: string;
-  scopes: ApiKeyScope[];
-  createdAt: number;
-  expiresAt: number;
-  enabled: boolean;
-  lastUsedAt: number;
-  lastUsedPath: string;
-  requestCount: number;
+  scopes: string;
+  created_at: number;
+  expires_at: number;
+  enabled: number;
+  last_used_at: number;
+  last_used_path: string;
+  request_count: number;
+}
+
+interface AuditRecord {
+  time: number;
+  hub_id: string;
+  key_id: string;
+  key_name: string;
+  method: string;
+  path: string;
+  status: number;
+  ms: number;
+  ip: string;
+  message: string | null;
+  unattributed: number;
+}
+
+interface LegacyStore {
+  hubs?: Array<{
+    id?: string;
+    keys?: Array<Partial<ApiKeyRow> & { secretHash?: string }>;
+  }>;
+  audit?: AuditEntry[];
 }
 
 /** 校验通过后挂在 req 上的调用上下文。 */
@@ -68,84 +91,208 @@ const AUDIT_LIMIT = 5000;
 const AUTH_FAILURE_LIMIT = 20;
 const AUTH_FAILURE_WINDOW_MS = 30 * 1000;
 const recentFailures = new Map<string, { count: number; until: number }>();
-let flushScheduled = false;
 
-const storePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../data/api-keys.json");
+const defaultDataDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../data");
+const dataDir = process.env.MIHOME_DATA_DIR ? path.resolve(process.env.MIHOME_DATA_DIR) : defaultDataDir;
+const databasePath = path.join(dataDir, "mihome.db");
+const legacyStorePath = path.join(dataDir, "api-keys.json");
 
-interface Store {
-  hubs: Map<string, Map<string, StoredKey>>;
-  audit: AuditEntry[];
-}
+fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+const db = new DatabaseSync(databasePath);
+fs.chmodSync(databasePath, 0o600);
+db.exec("PRAGMA journal_mode = WAL");
+db.exec("PRAGMA synchronous = NORMAL");
+db.exec("PRAGMA foreign_keys = ON");
+db.exec("PRAGMA busy_timeout = 5000");
+db.exec(`
+  CREATE TABLE IF NOT EXISTS app_metadata (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 
-const store: Store = { hubs: new Map(), audit: [] };
-const secretIndex = new Map<string, { hubId: string; row: StoredKey }>();
+  CREATE TABLE IF NOT EXISTS api_keys (
+    hub_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    prefix TEXT NOT NULL,
+    secret_hash TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    scopes TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL DEFAULT 0,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_used_at INTEGER NOT NULL DEFAULT 0,
+    last_used_path TEXT NOT NULL DEFAULT '',
+    request_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (hub_id, id)
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_api_keys_hub_created
+    ON api_keys (hub_id, created_at DESC);
+
+  CREATE TABLE IF NOT EXISTS audit_entries (
+    seq INTEGER PRIMARY KEY AUTOINCREMENT,
+    time INTEGER NOT NULL,
+    hub_id TEXT NOT NULL,
+    key_id TEXT NOT NULL DEFAULT '',
+    key_name TEXT NOT NULL DEFAULT '',
+    method TEXT NOT NULL,
+    path TEXT NOT NULL,
+    status INTEGER NOT NULL,
+    ms INTEGER NOT NULL,
+    ip TEXT NOT NULL DEFAULT '',
+    message TEXT,
+    unattributed INTEGER NOT NULL DEFAULT 0
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_audit_hub_seq
+    ON audit_entries (hub_id, seq DESC);
+
+  CREATE INDEX IF NOT EXISTS idx_audit_hub_key_seq
+    ON audit_entries (hub_id, key_id, seq DESC);
+`);
 
 function hash(secret: string) {
   return crypto.createHash("sha256").update(secret).digest("hex");
 }
 
-function writeStore() {
-  const body = {
-    hubs: [...store.hubs.entries()].map(([hubId, keys]) => ({
-      id: hubId,
-      keys: [...keys.values()],
-    })),
-    audit: store.audit,
-  };
-  fs.mkdirSync(path.dirname(storePath), { recursive: true });
-  const temp = `${storePath}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, JSON.stringify(body), { mode: 0o600 });
-  fs.renameSync(temp, storePath);
-}
-
-function persist() {
+function parseScopes(value: string): ApiKeyScope[] {
   try {
-    writeStore();
-  } catch (error) {
-    console.error("保存 API Key 失败", error instanceof Error ? error.message : "");
+    const scopes: unknown = JSON.parse(value);
+    if (!Array.isArray(scopes)) return [];
+    return scopes.filter((scope): scope is ApiKeyScope => API_KEY_SCOPES.includes(scope as ApiKeyScope));
+  } catch {
+    return [];
   }
 }
 
-function restore() {
-  if (!fs.existsSync(storePath)) return;
-  let body: {
-    hubs?: Array<{ id?: string; keys?: Array<Partial<StoredKey>> }>;
-    audit?: AuditEntry[];
-  };
+function transaction<T>(work: () => T): T {
+  db.exec("BEGIN IMMEDIATE");
   try {
-    body = JSON.parse(fs.readFileSync(storePath, "utf8"));
-  } catch {
+    const result = work();
+    db.exec("COMMIT");
+    return result;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
+function pruneAudit() {
+  db.prepare(`
+    DELETE FROM audit_entries
+    WHERE seq < (
+      SELECT seq FROM audit_entries ORDER BY seq DESC LIMIT 1 OFFSET ?
+    )
+  `).run(AUDIT_LIMIT - 1);
+}
+
+/** 首次启动时迁入旧 JSON；失败则不写入完成标记，下次启动可重试。 */
+function migrateLegacyStore() {
+  const marker = db.prepare("SELECT value FROM app_metadata WHERE key = 'legacy_api_keys_json'").get() as
+    | { value: string }
+    | undefined;
+  if (marker) return;
+  if (!fs.existsSync(legacyStorePath)) {
+    db.prepare("INSERT INTO app_metadata (key, value) VALUES ('legacy_api_keys_json', 'not-found')").run();
     return;
   }
-  for (const hub of body.hubs || []) {
-    if (!hub.id || !Array.isArray(hub.keys)) continue;
-    const keys = new Map<string, StoredKey>();
-    for (const row of hub.keys) {
-      if (typeof row.id !== "string" || typeof row.secretHash !== "string") continue;
-      keys.set(row.id, {
-        id: row.id,
-        prefix: String(row.prefix || ""),
-        secretHash: row.secretHash,
-        name: String(row.name || ""),
-        scopes: Array.isArray(row.scopes) ? (row.scopes.filter((s) => API_KEY_SCOPES.includes(s as ApiKeyScope)) as ApiKeyScope[]) : [],
-        createdAt: Number(row.createdAt || 0),
-        expiresAt: Number(row.expiresAt || 0),
-        enabled: row.enabled !== false,
-        lastUsedAt: Number(row.lastUsedAt || 0),
-        lastUsedPath: String(row.lastUsedPath || ""),
-        requestCount: Number(row.requestCount || 0),
-      });
-    }
-    if (keys.size) store.hubs.set(hub.id, keys);
-  }
-  if (Array.isArray(body.audit)) {
-    store.audit = body.audit.filter((row) => typeof row?.time === "number").slice(0, AUDIT_LIMIT);
+
+  try {
+    const body = JSON.parse(fs.readFileSync(legacyStorePath, "utf8")) as LegacyStore;
+    transaction(() => {
+      const insertKey = db.prepare(`
+        INSERT OR IGNORE INTO api_keys (
+          hub_id, id, prefix, secret_hash, name, scopes, created_at, expires_at,
+          enabled, last_used_at, last_used_path, request_count
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      for (const hub of body.hubs || []) {
+        if (!hub.id || !Array.isArray(hub.keys)) continue;
+        for (const row of hub.keys) {
+          if (typeof row.id !== "string" || typeof row.secretHash !== "string") continue;
+          const scopes = Array.isArray(row.scopes)
+            ? row.scopes.filter((scope) => API_KEY_SCOPES.includes(scope))
+            : [];
+          insertKey.run(
+            hub.id,
+            row.id,
+            String(row.prefix || ""),
+            row.secretHash,
+            String(row.name || ""),
+            JSON.stringify(scopes),
+            Number(row.createdAt || 0),
+            Number(row.expiresAt || 0),
+            row.enabled === false ? 0 : 1,
+            Number(row.lastUsedAt || 0),
+            String(row.lastUsedPath || ""),
+            Number(row.requestCount || 0),
+          );
+        }
+      }
+
+      const insertAudit = db.prepare(`
+        INSERT INTO audit_entries (
+          time, hub_id, key_id, key_name, method, path, status, ms, ip, message, unattributed
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const audit = (body.audit || []).filter((row) => typeof row?.time === "number").slice(0, AUDIT_LIMIT);
+      // JSON 按新到旧排列；按相反顺序插入，让自增 seq 与时间顺序一致。
+      for (const row of audit.reverse()) {
+        insertAudit.run(
+          row.time,
+          String(row.hubId || ""),
+          String(row.keyId || ""),
+          String(row.keyName || ""),
+          String(row.method || ""),
+          String(row.path || ""),
+          Number(row.status || 0),
+          Number(row.ms || 0),
+          String(row.ip || ""),
+          row.message == null ? null : String(row.message),
+          row.unattributed ? 1 : 0,
+        );
+      }
+      pruneAudit();
+      db.prepare("INSERT INTO app_metadata (key, value) VALUES ('legacy_api_keys_json', ?)").run(
+        new Date().toISOString(),
+      );
+    });
+  } catch (error) {
+    console.error("迁移旧 API Key 数据失败", error instanceof Error ? error.message : "");
   }
 }
 
-restore();
-for (const [hubId, keys] of store.hubs) {
-  for (const row of keys.values()) secretIndex.set(row.secretHash, { hubId, row });
+migrateLegacyStore();
+
+const KEY_COLUMNS = `
+  hub_id, id, prefix, secret_hash, name, scopes, created_at, expires_at,
+  enabled, last_used_at, last_used_path, request_count
+`;
+const insertKeyStatement = db.prepare(`
+  INSERT INTO api_keys (
+    hub_id, id, prefix, secret_hash, name, scopes, created_at, expires_at,
+    enabled, last_used_at, last_used_path, request_count
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+const listKeysStatement = db.prepare(`
+  SELECT ${KEY_COLUMNS} FROM api_keys WHERE hub_id = ? ORDER BY created_at DESC, id DESC
+`);
+const getKeyStatement = db.prepare(`SELECT ${KEY_COLUMNS} FROM api_keys WHERE hub_id = ? AND id = ?`);
+const getKeyByHashStatement = db.prepare(`SELECT ${KEY_COLUMNS} FROM api_keys WHERE secret_hash = ?`);
+
+function publicRow(row: KeyRecord): ApiKeyRow {
+  return {
+    id: row.id,
+    prefix: row.prefix,
+    name: row.name,
+    scopes: parseScopes(row.scopes),
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    enabled: Boolean(row.enabled),
+    lastUsedAt: row.last_used_at,
+    lastUsedPath: row.last_used_path,
+    requestCount: row.request_count,
+  };
 }
 
 /** 生成一把新 Key。明文只返回这一次，本地仅保存 SHA-256 摘要。 */
@@ -158,76 +305,72 @@ export function createApiKey(
   const id = crypto.randomBytes(9).toString("hex");
   const secretPart = crypto.randomBytes(24).toString("hex");
   const secret = `mihome_${id}_${secretPart}`;
-  const row: StoredKey = {
+  const now = Date.now();
+  const key: ApiKeyRow = {
     id,
     prefix: `mihome_${id}_${secretPart.slice(0, 8)}`,
-    secretHash: hash(secret),
     name: name || "未命名",
     scopes: scopes.length ? scopes : ["devices:read"],
-    createdAt: Date.now(),
-    expiresAt: expiresInDays > 0 ? Date.now() + expiresInDays * 86400000 : 0,
+    createdAt: now,
+    expiresAt: expiresInDays > 0 ? now + expiresInDays * 86400000 : 0,
     enabled: true,
     lastUsedAt: 0,
     lastUsedPath: "",
     requestCount: 0,
   };
-  let keys = store.hubs.get(hubId);
-  if (!keys) {
-    keys = new Map();
-    store.hubs.set(hubId, keys);
-  }
-  keys.set(row.id, row);
-  secretIndex.set(row.secretHash, { hubId, row });
-  persist();
-  return { key: publicRow(row), secret };
-}
-
-function publicRow(row: StoredKey): ApiKeyRow {
-  const { secretHash: _secretHash, ...rest } = row;
-  return rest;
+  insertKeyStatement.run(
+    hubId,
+    key.id,
+    key.prefix,
+    hash(secret),
+    key.name,
+    JSON.stringify(key.scopes),
+    key.createdAt,
+    key.expiresAt,
+    1,
+    0,
+    "",
+    0,
+  );
+  return { key, secret };
 }
 
 export function listApiKeys(hubId: string): ApiKeyRow[] {
-  const keys = store.hubs.get(hubId);
-  if (!keys) return [];
-  return [...keys.values()].sort((a, b) => b.createdAt - a.createdAt).map(publicRow);
+  return (listKeysStatement.all(hubId) as unknown as KeyRecord[]).map(publicRow);
 }
 
 export function getApiKey(hubId: string, id: string): ApiKeyRow | null {
-  const row = store.hubs.get(hubId)?.get(id);
+  const row = getKeyStatement.get(hubId, id) as unknown as KeyRecord | undefined;
   return row ? publicRow(row) : null;
 }
 
 export function setApiKeyEnabled(hubId: string, id: string, enabled: boolean): ApiKeyRow | null {
-  const row = store.hubs.get(hubId)?.get(id);
-  if (!row) return null;
-  row.enabled = enabled;
-  persist();
-  return publicRow(row);
+  const result = db.prepare("UPDATE api_keys SET enabled = ? WHERE hub_id = ? AND id = ?").run(
+    enabled ? 1 : 0,
+    hubId,
+    id,
+  );
+  return result.changes ? getApiKey(hubId, id) : null;
 }
 
 export function revokeApiKey(hubId: string, id: string): boolean {
-  const keys = store.hubs.get(hubId);
-  const row = keys?.get(id);
-  if (!keys || !row) return false;
-  keys.delete(id);
-  secretIndex.delete(row.secretHash);
-  if (!keys.size) store.hubs.delete(hubId);
-  persist();
-  return true;
+  return db.prepare("DELETE FROM api_keys WHERE hub_id = ? AND id = ?").run(hubId, id).changes > 0;
 }
 
-/** 通过摘要索引做常量时间复杂度查询，命中后再用安全比较确认。 */
+/** 通过唯一摘要索引查询，命中后再用安全比较确认。 */
 export function verifyApiKey(secret: string): AuthContext | null {
   if (!secret) return null;
   const target = hash(secret);
-  const hit = secretIndex.get(target);
-  if (!hit || !hit.row.enabled || (hit.row.expiresAt && Date.now() > hit.row.expiresAt)) return null;
-  if (!timingSafeEqualHex(hit.row.secretHash, target)) return null;
+  const row = getKeyByHashStatement.get(target) as unknown as KeyRecord | undefined;
   const now = Date.now();
-  hit.row.lastUsedAt = now;
-  hit.row.requestCount += 1;
-  return { hubId: hit.hubId, keyId: hit.row.id, keyName: hit.row.name, scopes: [...hit.row.scopes] };
+  if (!row || !row.enabled || (row.expires_at && now > row.expires_at)) return null;
+  if (!timingSafeEqualHex(row.secret_hash, target)) return null;
+  db.prepare(`
+    UPDATE api_keys
+    SET last_used_at = ?, request_count = request_count + 1
+    WHERE hub_id = ? AND id = ?
+  `).run(now, row.hub_id, row.id);
+  return { hubId: row.hub_id, keyId: row.id, keyName: row.name, scopes: parseScopes(row.scopes) };
 }
 
 function timingSafeEqualHex(left: string, right: string) {
@@ -241,33 +384,67 @@ export function hasScope(ctx: AuthContext, scope: ApiKeyScope) {
 }
 
 export function recordAudit(entry: AuditEntry) {
-  const key = store.hubs.get(entry.hubId)?.get(entry.keyId);
-  if (key) key.lastUsedPath = entry.path;
-  store.audit.unshift(entry);
-  if (store.audit.length > AUDIT_LIMIT) store.audit.length = AUDIT_LIMIT;
-  // 审计写入频繁，合并到同一轮事件循环末尾再落盘。
-  if (flushScheduled) return;
-  flushScheduled = true;
-  queueMicrotask(() => {
-    flushScheduled = false;
-    persist();
+  transaction(() => {
+    db.prepare("UPDATE api_keys SET last_used_path = ? WHERE hub_id = ? AND id = ?").run(
+      entry.path,
+      entry.hubId,
+      entry.keyId,
+    );
+    db.prepare(`
+      INSERT INTO audit_entries (
+        time, hub_id, key_id, key_name, method, path, status, ms, ip, message, unattributed
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      entry.time,
+      entry.hubId,
+      entry.keyId,
+      entry.keyName,
+      entry.method,
+      entry.path,
+      entry.status,
+      entry.ms,
+      entry.ip,
+      entry.message ?? null,
+      entry.unattributed ? 1 : 0,
+    );
+    pruneAudit();
   });
 }
 
+function publicAudit(row: AuditRecord): AuditEntry {
+  const entry: AuditEntry = {
+    time: row.time,
+    hubId: row.hub_id,
+    keyId: row.key_id,
+    keyName: row.key_name,
+    method: row.method,
+    path: row.path,
+    status: row.status,
+    ms: row.ms,
+    ip: row.ip,
+  };
+  if (row.message !== null) entry.message = row.message;
+  if (row.unattributed) entry.unattributed = true;
+  return entry;
+}
+
 export function listAudit(hubId: string, keyId = "", limit = 100): AuditEntry[] {
-  const rows: AuditEntry[] = [];
-  for (const row of store.audit) {
-    // keyId 筛选也必须限定 hub，且匿名失败记录不能跨 hub 分发。
-    if (row.hubId !== hubId || (keyId && row.keyId !== keyId)) continue;
-    rows.push(row);
-    if (rows.length >= limit) break;
-  }
-  return rows;
+  const count = Math.max(0, Math.floor(limit));
+  if (!count) return [];
+  const rows = keyId
+    ? db.prepare(`
+        SELECT time, hub_id, key_id, key_name, method, path, status, ms, ip, message, unattributed
+        FROM audit_entries WHERE hub_id = ? AND key_id = ? ORDER BY seq DESC LIMIT ?
+      `).all(hubId, keyId, count)
+    : db.prepare(`
+        SELECT time, hub_id, key_id, key_name, method, path, status, ms, ip, message, unattributed
+        FROM audit_entries WHERE hub_id = ? ORDER BY seq DESC LIMIT ?
+      `).all(hubId, count);
+  return (rows as unknown as AuditRecord[]).map(publicAudit);
 }
 
 export function clearAudit(hubId: string) {
-  store.audit = store.audit.filter((row) => row.hubId !== hubId);
-  persist();
+  db.prepare("DELETE FROM audit_entries WHERE hub_id = ?").run(hubId);
 }
 
 /** 只检查当前限流状态，不把有效请求计为失败。 */
