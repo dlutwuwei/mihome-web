@@ -10,6 +10,7 @@ import type {
   RawProperty,
   RawService,
   Service,
+  WasherPanel,
 } from "../types";
 
 export function deviceKey(device: Pick<RawDevice, "accountId" | "did">): string {
@@ -210,7 +211,63 @@ export function decorateServices(services: RawService[]): { services: Service[];
       ),
     }),
   );
+  const washer = washerPanelOf(decorated);
+  if (washer) {
+    // 程序行和启停动作已经放进洗衣机面板，通用列表里不再重复一遍。
+    for (const service of decorated) {
+      for (const property of service.properties) {
+        if (property.key === washer.programKey) property.hidden = true;
+      }
+      for (const action of service.actions) {
+        if (washer.action && action.key === washer.action.key) action.hidden = true;
+      }
+    }
+  }
   return { services: decorated, featuredKey };
+}
+
+/**
+ * 洗衣机面板只认服务端给出的 program / running_status / start(pause)，
+ * 和网页端共用同一份面板档案，不在小程序里另写程序枚举。
+ */
+export function washerPanelOf(services: Service[]): WasherPanel | null {
+  let program: Property | null = null;
+  let power: Property | null = null;
+  let status: Property | null = null;
+  let remain: Property | null = null;
+  let temperature: Property | null = null;
+  let progress: Property | null = null;
+  let action: ActionView | null = null;
+  for (const service of services) {
+    for (const property of service.properties) {
+      if (property.id === "program") program = property;
+      else if (property.id === "power") power = property;
+      else if (property.id === "running_status") status = property;
+      else if (property.id === "remain_time") remain = property;
+      else if (property.id === "temperature") temperature = property;
+      else if (property.id === "progress") progress = property;
+    }
+    for (const item of service.actions) {
+      if (item.id === "start" || item.id === "pause") action = item;
+    }
+  }
+  if (!program || !program.list.length) return null;
+  if (!status && !action) return null;
+  const index = program.options.findIndex((option) => option.selected);
+  const progressValue = Number(progress ? progress.value : 0);
+  return {
+    programKey: program.key,
+    powerKey: power ? power.key : "",
+    programs: program.options,
+    programIndex: index < 0 ? 0 : index,
+    programName: program.displayValue,
+    statusText: status ? status.displayValue : "",
+    remainText: remain && remain.displayValue !== "--" ? remain.displayValue : "",
+    temperatureText: temperature ? temperature.displayValue : "",
+    progressText: progressValue > 0 ? `${progressValue}%` : "",
+    powerOn: Boolean(power ? power.value : false),
+    action,
+  };
 }
 
 export function findProperty(services: Service[], key: string): Property | null {

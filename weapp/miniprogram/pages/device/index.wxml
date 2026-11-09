@@ -31,6 +31,54 @@
       <view wx:if="{{!canControl}}" class="permission-banner">当前 Key 为只读权限。添加 devices:control 后可控制设备。</view>
       <view wx:elif="{{!detail.device.online}}" class="permission-banner">设备当前离线，控制功能暂不可用。</view>
 
+      <view wx:if="{{washer}}" class="card washer-card section">
+        <view class="washer-heading">
+          <view class="washer-program-copy">
+            <text class="section-note">当前程序</text>
+            <text class="washer-program-name">{{washer.programName}}</text>
+          </view>
+          <view class="washer-state {{washer.action && washer.action.id === 'pause' ? 'washer-state-running' : ''}}">
+            {{washer.statusText || '待机'}}
+          </view>
+        </view>
+
+        <view wx:if="{{washer.remainText || washer.temperatureText || washer.progressText}}" class="washer-meta">
+          <text wx:if="{{washer.remainText}}" class="washer-chip">剩余 {{washer.remainText}}</text>
+          <text wx:if="{{washer.temperatureText}}" class="washer-chip">水温 {{washer.temperatureText}}</text>
+          <text wx:if="{{washer.progressText}}" class="washer-chip">进度 {{washer.progressText}}</text>
+        </view>
+
+        <picker
+          mode="selector"
+          range="{{washer.programs}}"
+          range-key="name"
+          value="{{washer.programIndex}}"
+          disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+          bindchange="onProgramPick"
+        >
+          <view class="washer-picker {{!canControl || !detail.device.online || !!busyKey ? 'washer-picker-disabled' : ''}}">
+            <text class="washer-picker-label">选择程序</text>
+            <text class="washer-picker-action">{{busyKey === washer.programKey ? '写入中…' : '更换 ›'}}</text>
+          </view>
+        </picker>
+
+        <button
+          wx:if="{{!washer.powerOn && washer.powerKey}}"
+          class="button washer-action"
+          disabled="{{!canControl || !detail.device.online || !!busyKey}}"
+          bindtap="onPowerOnTap"
+        >开机</button>
+        <button
+          wx:elif="{{washer.action}}"
+          class="button washer-action {{actionBusyKey === washer.action.key ? 'button-loading' : ''}}"
+          data-key="{{washer.action.key}}"
+          loading="{{actionBusyKey === washer.action.key}}"
+          disabled="{{!canControl || !detail.device.online || !!actionBusyKey}}"
+          bindtap="onActionTap"
+        >{{washer.action.name}}</button>
+        <view wx:else class="washer-hint">{{washer.powerOn ? '设备当前不在可启动状态，请检查机身提示' : '开机后可启动当前程序'}}</view>
+      </view>
+
       <view class="card gauge-card">
         <block wx:if="{{featuredProperty}}">
           <view class="gauge-card-heading">
@@ -96,7 +144,7 @@
 
         <view class="property-list">
           <block wx:for="{{service.properties}}" wx:for-item="prop" wx:key="key">
-            <view wx:if="{{!prop.featured}}" class="property-row">
+            <view wx:if="{{!prop.featured && !prop.hidden}}" class="property-row">
               <view class="property-heading">
                 <view>
                   <text class="property-name">{{prop.name}}</text>
@@ -164,6 +212,7 @@
             wx:for="{{service.actions}}"
             wx:for-item="action"
             wx:key="key"
+            wx:if="{{!action.hidden}}"
             class="action-button {{actionBusyKey === action.key ? 'button-loading' : ''}}"
             data-key="{{action.key}}"
             loading="{{actionBusyKey === action.key}}"

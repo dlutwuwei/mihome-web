@@ -1,6 +1,6 @@
 import { createStoreBindings } from "mobx-miniprogram-bindings";
 import { deviceStore } from "../../stores/deviceStore";
-import type { DecoratedDetail, Property, Service } from "../../types";
+import type { DecoratedDetail, Property, Service, WasherPanel } from "../../types";
 
 type StoreBindingsManager = ReturnType<typeof createStoreBindings>;
 
@@ -8,6 +8,7 @@ interface DeviceData {
   detail: DecoratedDetail | null;
   services: Service[];
   featuredProperty: Property | null;
+  washer: WasherPanel | null;
   detailLoading: boolean;
   detailError: string;
   busyKey: string;
@@ -30,6 +31,8 @@ interface DeviceCustom {
   onSliderChange(event: WechatMiniprogram.CustomEvent<{ value: number }>): void;
   onInputBlur(event: WechatMiniprogram.Input): void;
   onActionTap(event: WechatMiniprogram.TouchEvent): void;
+  onProgramPick(event: WechatMiniprogram.CustomEvent<{ value: number }>): void;
+  onPowerOnTap(): void;
   onRetryTap(): void;
 }
 
@@ -46,6 +49,7 @@ Page<DeviceData, DeviceCustom>({
     detail: null,
     services: [],
     featuredProperty: null,
+    washer: null,
     detailLoading: false,
     detailError: "",
     busyKey: "",
@@ -62,6 +66,7 @@ Page<DeviceData, DeviceCustom>({
         "detail",
         "services",
         "featuredProperty",
+        "washer",
         "detailLoading",
         "detailError",
         "busyKey",
@@ -158,6 +163,20 @@ Page<DeviceData, DeviceCustom>({
       .runDeviceAction(key)
       .then(() => wx.showToast({ title: "指令已执行", icon: "success" }))
       .catch((error) => this.showControlError(error));
+  },
+
+  onProgramPick(event: WechatMiniprogram.CustomEvent<{ value: number }>) {
+    const washer = this.data.washer;
+    if (!washer) return;
+    const option = washer.programs[Number(event.detail.value)];
+    if (!option) return;
+    deviceStore.writeProperty(washer.programKey, option.value).catch((error) => this.showControlError(error));
+  },
+
+  onPowerOnTap() {
+    const washer = this.data.washer;
+    if (!washer || !washer.powerKey) return;
+    deviceStore.writeProperty(washer.powerKey, true).catch((error) => this.showControlError(error));
   },
 
   onRetryTap() {

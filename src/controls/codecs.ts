@@ -243,13 +243,14 @@ export function getCodec(id?: string): Codec {
 /**
  * 配了 map 转换器的字段，枚举表本身就可以当选项列表；
  * 档案里没写 options 时用它，避免“能读能写但没得选”。
+ * 选项值和面板值一样用翻译后的名字，选中态才能和当前值对上。
  */
 export function codecOptions(rule: FieldRule): ControlOption[] {
   if (rule.options) return normalizeOptions(rule.options);
   if (rule.codec !== "map") return [];
   const rows = tableOf(rule.codecArgs || {});
-  return Object.entries(rows).map(([key, name]) => ({
-    value: num(key) ?? key,
-    name: String(name ?? key),
+  return Object.entries(rows).map(([, name]) => ({
+    value: String(name),
+    name: String(name),
   }));
 }

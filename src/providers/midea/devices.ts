@@ -1,5 +1,5 @@
 import { AppError } from "../../core/errors.js";
-import { buildPanel, encodeFieldValue, formatPanelValue, type VendorField } from "../../controls/index.js";
+import { buildPanel, encodeFieldValue, formatPanelValue, type VendorAction, type VendorField } from "../../controls/index.js";
 import type { DeviceDetail, DeviceSummary, LiveItem, VendorSession } from "../types.js";
 import { mas, sessionState } from "./api.js";
 import { decryptSn } from "./crypto.js";
@@ -32,6 +32,19 @@ function fieldsOf(status: Record<string, unknown>): VendorField[] {
 
 function asRecord(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function isOn(value: unknown) {
+  return value === true || value === 1 || value === "1" || value === "on";
+}
+
+/** 洗衣机才有的运行动作；启动和暂停共用 lua 的 control_status 字段 */
+function actionsOf(status: Record<string, unknown>): VendorAction[] {
+  if (!("program" in status) || !("running_status" in status)) return [];
+  const running = String(status.running_status ?? "");
+  if (running === "start") return [{ key: "pause", name: "暂停", group: "控制", aiid: 2 }];
+  if (running === "fault" || !isOn(status.power)) return [];
+  return [{ key: "start", name: "启动", group: "控制", aiid: 1 }];
 }
 
 async function readStatus(state: ReturnType<typeof sessionState>, did: string) {
@@ -173,7 +186,7 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
   const state = sessionState(session.state);
   const status = await readStatusOrCached(state, did);
   state.raw.set(did, status);
-  return buildPanel(device, fieldsOf(status));
+  return buildPanel(device, fieldsOf(status), actionsOf(status));
 }
 
 export async function setProperty(
@@ -198,6 +211,16 @@ export async function setProperty(
   if (status) state.raw.set(did, status);
 }
 
-export async function runAction() {
-  throw new AppError("该设备没有可执行动作", "ACTION", 400);
+export async function runAction(session: VendorSession, did: string, _siid: number, aiid: number) {
+  const device = session.devices.get(did);
+  if (!device) throw new AppError("请先刷新设备列表", "DEVICE", 404);
+  if (aiid !== 1 && aiid !== 2) throw new AppError("该设备没有可执行动作", "ACTION", 400);
+  const state = sessionState(session.state);
+  /* 滚筒洗衣机的云端协议用 control_status=start/pause，写 start=on 设备不会响应 */
+  const data = await mas(state, CONTROL_PATH, {
+    applianceCode: did,
+    command: { control: { control_status: aiid === 1 ? "start" : "pause" } },
+  });
+  const status = asRecord(data.status) || asRecord(data.result);
+  if (status) state.raw.set(did, status);
 }

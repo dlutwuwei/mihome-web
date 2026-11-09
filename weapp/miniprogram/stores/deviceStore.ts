@@ -9,6 +9,7 @@ import {
   clampPropertyValue,
   apparentTemperatureOf,
   comfortOf,
+  washerPanelOf,
 } from "../utils/device";
 import type { ApiInfo, Device, DeviceStore, LiveMap, RoomSummary } from "../types";
 
@@ -187,6 +188,10 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     return property ? { ...property } : null;
   },
 
+  get washer() {
+    return washerPanelOf(this.services);
+  },
+
   updateBaseUrl: action(function (this: DeviceStore, value: string): void {
     this.baseUrl = value;
   }),
@@ -341,6 +346,30 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     }
   }),
 
+  /** 写入/动作成功后静默回读一次，程序、电源和启停按钮才能跟设备保持一致 */
+  refreshDetail: action(async function (this: DeviceStore): Promise<void> {
+    const current = this.detail;
+    if (!current) return;
+    const accountId = current.device.accountId;
+    const did = current.device.did;
+    if (!accountId || !did) return;
+    const generation = detailGeneration;
+    const detail = await api.getDeviceDetail(accountId, did);
+    const decorated = decorateServices(detail.services || []);
+    const confirmed: Record<string, unknown> = {};
+    for (const service of decorated.services) {
+      for (const property of service.properties) confirmed[property.key] = property.value;
+    }
+    runInAction(() => {
+      if (generation !== detailGeneration) return;
+      this.detail = { ...detail, device: decorateDevice(detail.device, 0) };
+      this.services = decorated.services;
+      this.featuredKey = decorated.featuredKey;
+      this.confirmed = confirmed;
+      this.featuredRevision += 1;
+    });
+  }),
+
   previewProperty: action(function (this: DeviceStore, key: string, value: unknown): void {
     const property = findProperty(this.services, key);
     if (!property) return;
@@ -375,6 +404,7 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
       runInAction(() => {
         this.confirmed[key] = nextValue;
       });
+      await this.refreshDetail().catch(() => {});
     } catch (error) {
       runInAction(() => {
         this.previewProperty(key, previous);
@@ -405,6 +435,7 @@ const storeDefinition: DeviceStore & ThisType<DeviceStore> = {
     this.detailError = "";
     try {
       await api.runAction(this.detail.device.accountId, this.detail.device.did, found.action);
+      await this.refreshDetail().catch(() => {});
     } catch (error) {
       runInAction(() => {
         this.detailError = errorMessage(error, "动作执行失败");

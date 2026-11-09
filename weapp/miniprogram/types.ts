@@ -86,6 +86,7 @@ export interface Property {
   error?: number;
   key: string;
   featured: boolean;
+  hidden?: boolean;
   displayValue: string;
   options: ChoiceView[];
 }
@@ -99,6 +100,22 @@ export interface RawAction {
 
 export interface ActionView extends RawAction {
   key: string;
+  hidden?: boolean;
+}
+
+/** 洗衣机专用面板：程序选择、运行状态与启动/暂停动作 */
+export interface WasherPanel {
+  programKey: string;
+  powerKey: string;
+  programs: ChoiceView[];
+  programIndex: number;
+  programName: string;
+  statusText: string;
+  remainText: string;
+  temperatureText: string;
+  progressText: string;
+  powerOn: boolean;
+  action: ActionView | null;
 }
 
 export interface RawService {
@@ -204,6 +221,7 @@ export interface DeviceStore {
   readonly comfortText: string;
   readonly heroTone: string;
   readonly featuredProperty: Property | null;
+  readonly washer: WasherPanel | null;
 
   updateBaseUrl(value: string): void;
   updateApiKey(value: string): void;
@@ -213,6 +231,7 @@ export interface DeviceStore {
   saveConnection(): Promise<ApiInfo | null>;
   clearConnection(): void;
   loadDeviceDetail(accountId: string, did: string): Promise<void>;
+  refreshDetail(): Promise<void>;
   previewProperty(key: string, value: unknown): void;
   writeProperty(key: string, value: unknown): Promise<void>;
   stepFeatured(direction: number): Promise<void>;

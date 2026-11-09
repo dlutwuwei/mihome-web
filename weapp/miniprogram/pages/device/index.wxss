@@ -44,6 +44,21 @@
 .action-button { display: flex; align-items: center; justify-content: center; width: 48%; min-height: 80rpx; margin-bottom: 16rpx; padding: 0 18rpx; border-radius: 24rpx; background: var(--primary-soft); color: var(--primary); font-size: 24rpx; font-weight: 600; text-align: center; }
 .action-button[disabled] { opacity: 0.45; }
 
+.washer-card { padding: 30rpx; }
+.washer-heading { display: flex; align-items: flex-start; justify-content: space-between; }
+.washer-program-copy { flex: 1; min-width: 0; }
+.washer-program-name { display: block; margin-top: 8rpx; overflow: hidden; font-size: 42rpx; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.washer-state { flex-shrink: 0; margin-left: 20rpx; padding: 10rpx 22rpx; border-radius: 999rpx; background: #f1f2f7; color: #858a9e; font-size: 22rpx; }
+.washer-state-running { background: #e5f1ed; color: #3e7464; }
+.washer-meta { display: flex; flex-wrap: wrap; margin-top: 16rpx; }
+.washer-chip { margin: 6rpx 12rpx 6rpx 0; padding: 10rpx 20rpx; border-radius: 16rpx; background: #f5f6fa; color: #666b80; font-size: 21rpx; }
+.washer-picker { display: flex; align-items: center; justify-content: space-between; margin-top: 16rpx; padding: 24rpx 26rpx; border-radius: 24rpx; background: #f5f6fa; }
+.washer-picker-disabled { opacity: 0.55; }
+.washer-picker-label { color: #666b80; font-size: 24rpx; }
+.washer-picker-action { color: var(--primary); font-size: 24rpx; font-weight: 600; }
+.washer-action { width: 100%; margin-top: 24rpx; }
+.washer-hint { margin-top: 24rpx; padding: 24rpx; border-radius: 22rpx; background: #fff1cb; color: #8c7337; font-size: 22rpx; text-align: center; }
+
 .detail-loading { padding-top: 10rpx; }
 .loading-hero { height: 570rpx; }
 .loading-section { height: 300rpx; margin-top: 30rpx; }
