@@ -43,6 +43,27 @@ async function readStatus(state: ReturnType<typeof sessionState>, did: string) {
   return status as Record<string, unknown>;
 }
 
+/** 1306：设备刚休眠/切换状态时，云端拿不到这次异步查询的回包 */
+function isAsyncReplyMissing(error: unknown) {
+  return error instanceof AppError && String(error.code) === "1306";
+}
+
+async function readStatusOrCached(state: ReturnType<typeof sessionState>, did: string) {
+  try {
+    return await readStatus(state, did);
+  } catch (error) {
+    if (!isAsyncReplyMissing(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    try {
+      return await readStatus(state, did);
+    } catch (retryError) {
+      const cached = state.raw.get(did);
+      if (isAsyncReplyMissing(retryError) && cached) return cached;
+      throw retryError;
+    }
+  }
+}
+
 function roomDevices(home: Record<string, unknown>, roomName: string) {
   const rooms = (home.roomList || home.roomlist || []) as Array<Record<string, unknown>>;
   const rows: Array<{ raw: Record<string, unknown>; room: string }> = [];
@@ -150,7 +171,7 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
   const device = session.devices.get(did);
   if (!device) throw new AppError("请先刷新设备列表", "DEVICE", 404);
   const state = sessionState(session.state);
-  const status = await readStatus(state, did);
+  const status = await readStatusOrCached(state, did);
   state.raw.set(did, status);
   return buildPanel(device, fieldsOf(status));
 }
@@ -168,10 +189,13 @@ export async function setProperty(
   if (!key) throw new AppError("缺少字段名", "PROP", 400);
   const state = sessionState(session.state);
   const raw = encodeFieldValue(device, key, value, { raw: state.raw.get(did)?.[key] });
-  await mas(state, CONTROL_PATH, {
+  const data = await mas(state, CONTROL_PATH, {
     applianceCode: did,
     command: { control: { [key]: raw } },
   });
+  /* 控制回包带最新状态；关机后设备会短暂休眠，后续查询可能拿不到回包 */
+  const status = asRecord(data.status) || asRecord(data.result);
+  if (status) state.raw.set(did, status);
 }
 
 export async function runAction() {
