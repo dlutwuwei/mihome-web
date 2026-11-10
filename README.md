@@ -95,6 +95,41 @@
 - 开放接口响应带 `Cache-Control: no-store`，避免设备数据和鉴权结果被缓存。
 - Key 格式 `mihome_<id>_<48hex>`，界面只展示前缀；撤销 / 停用 / 过期立即生效。
 
+## 命令行工具（供大模型调用）
+
+`scripts/mihome.mjs` 封装了上面的开放 API，无第三方依赖，输出单行 JSON、退出码稳定，
+适合被大模型或脚本直接调用。设备参数既可以是 `did`，也可以是设备名（精确匹配优先，其次唯一包含匹配）。
+
+```bash
+export MIHOME_API_KEY=mihome_xxx            # 站内「设备信息分发」创建的 Key
+export MIHOME_BASE_URL=http://127.0.0.1:8787 # 可选，也可指向隧道地址；带不带 /api/open 都行
+
+npm run mihome -- devices --filter 洗衣机
+npm run mihome -- props 洗衣机
+npm run mihome -- set 洗衣机 program 标准洗
+npm run mihome -- set 洗衣机 power true
+npm run mihome -- action 洗衣机 启动
+npm run mihome -- live 洗衣机
+```
+
+| 命令 | 说明 |
+| --- | --- |
+| `info` / `accounts` | Key 的权限范围、可见账号 |
+| `devices [--account <id>] [--filter <关键词>]` | 设备列表，可按名称、型号、房间、did 过滤 |
+| `device <设备>` | 面板详情（属性、可选值、动作） |
+| `props <设备> [--writable]` | 扁平化的属性与动作，含当前值、范围、选项 |
+| `live [设备]` | 实时读数 |
+| `set <设备> <字段> <值>` | 写属性；值按当前类型推断，也可直接写选项名（如 `制冷`） |
+| `set <设备> --siid <n> --piid <n> --value <值>` | 已知 siid/piid 时直接写 |
+| `action <设备> <动作>` | 执行动作，动作名来自 `props` 的 `actions` |
+| `api <METHOD> <path> [--body <JSON>]` | 直接调用 `/api/open` 下的接口 |
+
+- 传输参数：`--base-url`、`--api-key`、`--timeout <秒>`、`--pretty`；`--api-key` 仅建议临时使用。
+- 写值类型默认跟随字段当前值；可用 `--type string|number|boolean|json` 强制，`--force` 跳过面板只读判断，
+  `--allow-offline` 跳过离线检查。
+- 成功输出 JSON 到 stdout；失败输出 `{"error":...,"status":...}` 到 stderr，退出码 `0` 成功、`1` 接口或网络错误、`2` 用法或配置错误。
+- 也可直接运行 `node scripts/mihome.mjs`，或 `npm link` 后使用 `mihome` 命令。
+
 ## 本地开发：用 Cloudflare Tunnel 获取 HTTPS 地址
 
 小程序真机调试或远程联调时，用 Cloudflare Tunnel 把本机服务暴露成公网 HTTPS 地址，
