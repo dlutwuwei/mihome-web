@@ -33,6 +33,7 @@ interface DeviceCustom {
   onActionTap(event: WechatMiniprogram.TouchEvent): void;
   onProgramPick(event: WechatMiniprogram.CustomEvent<{ value: number }>): void;
   onPowerOnTap(): void;
+  onPowerOffTap(): void;
   onRetryTap(): void;
 }
 
@@ -177,6 +178,12 @@ Page<DeviceData, DeviceCustom>({
     const washer = this.data.washer;
     if (!washer || !washer.powerKey) return;
     deviceStore.writeProperty(washer.powerKey, true).catch((error) => this.showControlError(error));
+  },
+
+  onPowerOffTap() {
+    const washer = this.data.washer;
+    if (!washer || !washer.powerKey) return;
+    deviceStore.writeProperty(washer.powerKey, false).catch((error) => this.showControlError(error));
   },
 
   onRetryTap() {

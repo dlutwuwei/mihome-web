@@ -53,6 +53,9 @@ global.wx = {
           failNextWrite = false;
           options.success({ statusCode: 500, data: { error: "模拟写入失败" } });
         } else {
+          const { siid, piid, value } = options.data || {};
+          const prop = detail.services[0].properties.find((item) => item.siid === siid && item.piid === piid);
+          if (prop) prop.value = value;
           options.success({ statusCode: 200, data: { ok: true } });
         }
       } else if (path === "/api/open/devices/account%20one/did%2F1/actions") {

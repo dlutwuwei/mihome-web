@@ -58,7 +58,10 @@
         >
           <view class="washer-picker {{!canControl || !detail.device.online || !!busyKey ? 'washer-picker-disabled' : ''}}">
             <text class="washer-picker-label">选择程序</text>
-            <text class="washer-picker-action">{{busyKey === washer.programKey ? '写入中…' : '更换 ›'}}</text>
+            <view class="washer-picker-current">
+              <text class="washer-picker-value">{{busyKey === washer.programKey ? '写入中…' : washer.programName}}</text>
+              <text class="washer-picker-action">更换 ›</text>
+            </view>
           </view>
         </picker>
 
@@ -68,15 +71,25 @@
           disabled="{{!canControl || !detail.device.online || !!busyKey}}"
           bindtap="onPowerOnTap"
         >开机</button>
-        <button
-          wx:elif="{{washer.action}}"
-          class="button washer-action {{actionBusyKey === washer.action.key ? 'button-loading' : ''}}"
-          data-key="{{washer.action.key}}"
-          loading="{{actionBusyKey === washer.action.key}}"
-          disabled="{{!canControl || !detail.device.online || !!actionBusyKey}}"
-          bindtap="onActionTap"
-        >{{washer.action.name}}</button>
-        <view wx:else class="washer-hint">{{washer.powerOn ? '设备当前不在可启动状态，请检查机身提示' : '开机后可启动当前程序'}}</view>
+        <block wx:else>
+          <view wx:if="{{!washer.action}}" class="washer-hint">{{washer.powerOn ? '设备当前不在可启动状态，请检查机身提示' : '开机后可启动当前程序'}}</view>
+          <view wx:if="{{washer.powerOn && washer.powerKey}}" class="washer-actions">
+            <button
+              wx:if="{{washer.action}}"
+              class="button washer-action {{actionBusyKey === washer.action.key ? 'button-loading' : ''}}"
+              data-key="{{washer.action.key}}"
+              loading="{{actionBusyKey === washer.action.key}}"
+              disabled="{{!canControl || !detail.device.online || !!actionBusyKey || !!busyKey}}"
+              bindtap="onActionTap"
+            >{{washer.action.name}}</button>
+            <button
+              class="button button-secondary washer-power"
+              loading="{{busyKey === washer.powerKey}}"
+              disabled="{{!canControl || !detail.device.online || !!busyKey || !!actionBusyKey}}"
+              bindtap="onPowerOffTap"
+            >关机</button>
+          </view>
+        </block>
       </view>
 
       <view class="card gauge-card">
