@@ -1,5 +1,5 @@
 import { AppError } from "../../core/errors.js";
-import { buildPanel, encodeFieldValue, formatPanelValue, type VendorAction, type VendorField } from "../../controls/index.js";
+import { buildPanel, encodeFieldValue, formatPanelValue, panelLive, type VendorAction, type VendorField } from "../../controls/index.js";
 import type { DeviceDetail, DeviceSummary, LiveItem, VendorSession } from "../types.js";
 import { mas, sessionState } from "./api.js";
 import { decryptSn } from "./crypto.js";
@@ -186,7 +186,9 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
   const state = sessionState(session.state);
   const status = await readStatusOrCached(state, did);
   state.raw.set(did, status);
-  return buildPanel(device, fieldsOf(status), actionsOf(status));
+  const detail = buildPanel(device, fieldsOf(status), actionsOf(status));
+  detail.device.live = panelLive(detail);
+  return detail;
 }
 
 export async function setProperty(

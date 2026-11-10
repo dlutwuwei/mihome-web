@@ -1,5 +1,5 @@
 import { AppError } from "../core/errors.js";
-import type { DeviceAction, DeviceDetail, DeviceProperty, DeviceService, DeviceSummary } from "../providers/types.js";
+import type { DeviceAction, DeviceDetail, DeviceProperty, DeviceService, DeviceSummary, LiveItem } from "../providers/types.js";
 import { codecOptions, getCodec } from "./codecs.js";
 import type { CodecCtx } from "./codecs.js";
 import { matchesPattern, resolveProfile, resolveRule } from "./profiles.js";
@@ -93,6 +93,17 @@ export function formatPanelValue(prop: DeviceProperty): string {
   if (typeof prop.value === "boolean") return prop.value ? "开" : "关";
   const text = String(prop.value);
   return prop.unit && /^-?\d+(\.\d+)?$/.test(text) ? `${text}${prop.unit}` : text;
+}
+
+/** 用刚刚读到的面板值生成顶部读数芯片，避免详情页沿用列表缓存里的旧状态 */
+export function panelLive(detail: DeviceDetail): LiveItem[] {
+  return detail.services
+    .flatMap((service) => service.properties)
+    .slice(0, 4)
+    .flatMap((prop) => {
+      const text = formatPanelValue(prop);
+      return text ? [{ name: prop.name, text }] : [];
+    });
 }
 
 /**

@@ -1,5 +1,5 @@
 import { AppError } from "../../core/errors.js";
-import { buildPanel, encodeFieldValue, type VendorAction, type VendorField } from "../../controls/index.js";
+import { buildPanel, encodeFieldValue, panelLive, type VendorAction, type VendorField } from "../../controls/index.js";
 import type {
   DeviceDetail,
   DeviceSummary,
@@ -262,6 +262,7 @@ export async function getDeviceDetail(session: VendorSession, did: string): Prom
       prop.error = row && row.code !== 0 ? row.code : 0;
     }
   }
+  detail.device.live = panelLive(detail);
   return detail;
 }
 

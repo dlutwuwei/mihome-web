@@ -16,7 +16,7 @@ export {
   setProfileDir,
   type ProfileView,
 } from "./profiles.js";
-export { buildPanel, encodeFieldValue, formatPanelValue } from "./panel.js";
+export { buildPanel, encodeFieldValue, formatPanelValue, panelLive } from "./panel.js";
 
 /** 内置档案在启动时注册；data/profiles 下的 JSON 每次读取时按 mtime 生效 */
 export function bootstrapProfiles() {
