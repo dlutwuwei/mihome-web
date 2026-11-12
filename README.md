@@ -50,6 +50,11 @@
 ### 配置落在哪里
 
 - 内置档案：`src/controls/profiles/{xiaomi,midea,pantum}.ts`，启动时由 `bootstrapProfiles()` 注册。
+- 主要控制项：`src/controls/config/main-controls.json`。
+  - `keep` 是字段白名单，`keepActions` 是动作白名单，都支持 `*` 通配；数组顺序同时作为展示顺序。
+  - 未写进白名单的字段不会下发，写回也会被拒绝；完全不声明 `keep` 表示不做限制。
+  - 多条档案同时命中时，高层级（`did` > `model` > `specType` > `vendor`）的白名单覆盖低层级。
+  - 改完这个文件需要重启服务；临时调整也可以往 `data/profiles/<vendor>/*.json` 放一份更高层级的档案来覆盖。
 - 运行时覆盖：`data/profiles/<vendor>/<id>.json`（可用 `MIHOME_PROFILE_DIR` 改目录），
   按文件 mtime 热生效，不用重启。
 - HTTP：`GET /api/profiles`、`GET /api/profiles/options`、`GET /api/profiles/devices`、

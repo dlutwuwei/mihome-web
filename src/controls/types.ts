@@ -8,7 +8,12 @@
  */
 
 /** 面板控件类型；"auto" 表示交给约束（options / range / format）推断 */
-export type ControlKind = "switch" | "segmented" | "select" | "slider" | "number" | "text";
+export type ControlKind = "switch" | "segmented" | "select" | "slider" | "number" | "text" | "table";
+
+export interface DataTable {
+  columns: Array<{ key: string; name: string }>;
+  rows: Array<Record<string, string>>;
+}
 
 export interface ControlOption {
   value: string | number | boolean;
@@ -35,6 +40,8 @@ export interface VendorField {
   piid?: number;
   /** 写回需要的厂商私有信息（如美的是 boolStyle / asText） */
   meta?: Record<string, unknown>;
+  /** kind 为 table 时的行数据 */
+  table?: DataTable;
 }
 
 export interface VendorAction {
@@ -88,6 +95,14 @@ export interface DeviceProfile {
   fields?: Record<string, FieldRule>;
   /** 丢弃这些字段，支持 "*" 通配 */
   omit?: string[];
+  /**
+   * 只保留这些字段，支持 "*" 通配；数组顺序同时作为展示顺序。
+   * 未声明时展示全部字段；声明后未命中的字段既不展示也不能写回。
+   * 多份档案同时声明时，高层级（did > model > specType > vendor）覆盖低层级。
+   */
+  keep?: string[];
+  /** 只保留这些动作，支持 "*" 通配；数组顺序同时作为展示顺序。 */
+  keepActions?: string[];
   /** 展示顺序，每项可以是字段名或通配模式；未命中的字段按适配器原始顺序排在后面 */
   order?: string[];
   groups?: Record<string, { name?: string; order?: number }>;
@@ -110,4 +125,5 @@ export interface ResolvedField {
   siid?: number;
   piid?: number;
   meta?: Record<string, unknown>;
+  table?: DataTable;
 }

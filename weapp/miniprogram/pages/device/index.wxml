@@ -163,7 +163,7 @@
                   <text class="property-name">{{prop.name}}</text>
                   <text class="property-meta">{{prop.writable ? '可调节' : '当前读数'}}</text>
                 </view>
-                <text wx:if="{{prop.kind !== 'switch' || !prop.writable}}" class="property-value">{{prop.displayValue}}</text>
+                <text wx:if="{{prop.kind !== 'table' && (prop.kind !== 'switch' || !prop.writable)}}" class="property-value">{{prop.displayValue}}</text>
                 <switch
                   wx:else
                   checked="{{prop.value}}"
@@ -216,6 +216,15 @@
                   bindblur="onInputBlur"
                 />
               </block>
+              <view wx:if="{{prop.kind === 'table' && prop.table}}" class="usage">
+                <view class="usage-line usage-head">
+                  <text wx:for="{{prop.table.columns}}" wx:for-item="col" wx:key="key">{{col.name}}</text>
+                </view>
+                <view wx:for="{{prop.table.rows}}" wx:for-item="row" wx:key="key" class="usage-line">
+                  <text wx:for="{{prop.table.columns}}" wx:for-item="col" wx:key="key">{{row[col.key]}}</text>
+                </view>
+                <text wx:if="{{!prop.table.rows.length}}" class="usage-empty">暂无记录</text>
+              </view>
             </view>
           </block>
         </view>

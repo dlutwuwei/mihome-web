@@ -179,6 +179,7 @@ select:disabled { opacity: 0.7; cursor: default; }
   font-weight: 600;
   letter-spacing: 0.01em;
 }
+.usage { margin-top: 4px; color: var(--secondary); font-size: 13px; }
 .grow { flex: 1; min-height: 16px; }
 .room { color: var(--secondary); font-size: 12px; }
 .room b, .where b { font-weight: 600; color: var(--ink); }
@@ -302,6 +303,11 @@ select:disabled { opacity: 0.7; cursor: default; }
   border-top: 1px solid var(--line);
 }
 .row select { width: auto; margin: 0; }
+.usage { margin: 4px 0 8px; overflow-x: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.usage-table th, .usage-table td { padding: 8px 4px; border-top: 1px solid var(--line); text-align: right; }
+.usage-table th:first-child, .usage-table td:first-child { text-align: left; }
+.usage-table th { color: var(--tertiary); font-weight: 500; font-size: 12px; }
 .row.ctl-segmented { flex-wrap: wrap; }
 .row.ctl-text strong {
   font-weight: 600;

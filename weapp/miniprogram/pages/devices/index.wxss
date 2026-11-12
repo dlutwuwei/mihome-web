@@ -160,7 +160,7 @@
 .device-grid {
   display: flex;
   flex-wrap: wrap;
-  margin: 0 -10rpx;
+  margin: 40rpx -10rpx 0 0;
 }
 
 .device-grid-item {

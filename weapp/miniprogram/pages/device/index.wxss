@@ -10,10 +10,11 @@
 
 .gauge-card { padding: 30rpx 28rpx 34rpx; }
 .gauge-card-heading { display: flex; align-items: center; justify-content: space-between; padding: 0 8rpx; }
-.step-control { display: flex; align-items: center; justify-content: space-between; width: 330rpx; max-width: 86%; height: 88rpx; margin: -12rpx auto 0; padding: 10rpx; border-radius: 999rpx; background: var(--coral); box-shadow: 0 14rpx 30rpx rgba(239,137,108,0.2); }
-.step-button { display: flex; align-items: center; justify-content: center; width: 66rpx; height: 66rpx; border-radius: 50%; background: #ffffff; color: #c96f54; font-size: 34rpx; text-align: center; }
+.step-control { display: flex; align-items: center; justify-content: center; box-sizing: border-box; width: 340rpx; max-width: 86%; height: 88rpx; margin: -12rpx auto 0; padding: 0 12rpx; border-radius: 999rpx; background: var(--coral); box-shadow: 0 14rpx 30rpx rgba(239,137,108,0.2); }
+/* button 自带内边距和宽度，必须显式收住，否则会被撑成椭圆 */
+.step-button { display: flex; align-items: center; justify-content: center; flex: 0 0 68rpx; box-sizing: border-box; width: 68rpx; min-width: 68rpx; max-width: 68rpx; height: 68rpx; min-height: 68rpx; max-height: 68rpx; margin: 0; padding: 0; border-radius: 50%; background: #ffffff; color: #c96f54; font-size: 34rpx; line-height: 1; text-align: center; }
 .step-button[disabled] { opacity: 0.5; }
-.step-caption { color: #ffffff; font-size: 21rpx; opacity: 0.85; }
+.step-caption { flex: 0 0 auto; margin: 0 18rpx; color: #ffffff; font-size: 22rpx; line-height: 1.2; white-space: nowrap; opacity: 0.9; }
 
 .device-visual { position: relative; display: flex; align-items: center; flex-direction: column; justify-content: center; min-height: 400rpx; overflow: hidden; }
 .visual-glyph { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; width: 150rpx; height: 150rpx; border-radius: 50%; background: linear-gradient(145deg, #e5e8ff, #f5f1ff); box-shadow: 0 20rpx 42rpx rgba(98,109,204,0.16); color: var(--primary); font-size: 46rpx; font-weight: 650; }
@@ -36,6 +37,12 @@
 .property-name { display: block; color: #404457; font-size: 27rpx; font-weight: 550; }
 .property-meta { display: block; margin-top: 6rpx; color: #b0b3c0; font-size: 19rpx; }
 .property-value { max-width: 50%; color: var(--primary); font-size: 27rpx; font-weight: 600; text-align: right; }
+.usage { margin-top: 12rpx; }
+.usage-line { display: flex; }
+.usage-line text { flex: 1; font-size: 24rpx; padding: 8rpx 0; }
+.usage-line text:not(:first-child) { text-align: right; }
+.usage-head text { color: #8b8f9a; }
+.usage-empty { color: #8b8f9a; font-size: 24rpx; }
 .option-list { display: flex; flex-wrap: wrap; margin-top: 22rpx; }
 .option-pill { min-height: 62rpx; margin: 0 12rpx 12rpx 0; font-size: 22rpx; }
 .property-slider { margin: 26rpx 0 4rpx; }

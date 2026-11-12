@@ -41,7 +41,12 @@ export interface RoomSummary {
   count: number;
 }
 
-export type PropertyKind = "slider" | "switch" | "segmented" | "select" | "number" | "text";
+export type PropertyKind = "slider" | "switch" | "segmented" | "select" | "number" | "text" | "table";
+
+export interface DataTable {
+  columns: Array<{ key: string; name: string }>;
+  rows: Array<Record<string, string>>;
+}
 
 export interface Choice {
   value: string | number | boolean;
@@ -66,6 +71,7 @@ export interface RawProperty {
   list?: Choice[];
   value?: unknown;
   error?: number;
+  table?: DataTable;
 }
 
 export interface Property {
@@ -89,6 +95,7 @@ export interface Property {
   hidden?: boolean;
   displayValue: string;
   options: ChoiceView[];
+  table?: DataTable;
 }
 
 export interface RawAction {

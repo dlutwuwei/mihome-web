@@ -61,6 +61,8 @@ export function VendorLogin({
   const [pendingId, setPendingId] = useState("");
   const [needCaptcha, setNeedCaptcha] = useState(false);
   const [needEmail, setNeedEmail] = useState(false);
+  const [needDevice, setNeedDevice] = useState(false);
+  const [deviceCode, setDeviceCode] = useState("");
   const [smsSent, setSmsSent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -72,9 +74,11 @@ export function VendorLogin({
     setPendingId("");
     setNeedCaptcha(false);
     setNeedEmail(false);
+    setNeedDevice(false);
     setSmsSent(false);
     setCaptcha("");
     setEmailCode("");
+    setDeviceCode("");
     setError("");
   }, [vendorId]);
 
@@ -107,9 +111,11 @@ export function VendorLogin({
     setPendingId("");
     setNeedCaptcha(false);
     setNeedEmail(false);
+    setNeedDevice(false);
     setSmsSent(false);
     setCaptcha("");
     setEmailCode("");
+    setDeviceCode("");
     setError("");
   }
 
@@ -153,6 +159,7 @@ export function VendorLogin({
     const passwordValue = password;
     const captchaValue = captcha;
     const emailCodeValue = emailCode;
+    const deviceCodeValue = deviceCode;
     const pendingValue = pendingId;
     try {
       if (mode === "qr") {
@@ -176,6 +183,7 @@ export function VendorLogin({
           username: usernameValue,
           password: passwordValue,
           captcha: captchaValue,
+          deviceCode: deviceCodeValue,
           pendingId: pendingValue,
           method: mode === "sms" ? "sms" : undefined,
           accountId: replaceAccountId,
@@ -191,6 +199,12 @@ export function VendorLogin({
         setNeedCaptcha(false);
         setNeedEmail(true);
         setPendingId(data.pendingId);
+        return;
+      }
+      if ("needDeviceCode" in data) {
+        setNeedDevice(true);
+        setPendingId(data.pendingId);
+        setDeviceCode("");
         return;
       }
       if (isOkSession(data)) onSuccess(data.accounts);
@@ -234,7 +248,7 @@ export function VendorLogin({
         </label>
         {mode !== "qr" ? (
           <>
-            <label>{vendorId === "midea" || vendorId === "pantum" ? "手机号" : "账号"}<input value={username} autoComplete="username" inputMode={vendorId === "midea" || vendorId === "pantum" ? "tel" : undefined} onChange={(event) => setUsername(event.target.value)} /></label>
+            <label>{vendorId === "midea" || vendorId === "pantum" || vendorId === "sgcc" ? "手机号" : "账号"}<input value={username} autoComplete="username" inputMode={vendorId === "midea" || vendorId === "pantum" || vendorId === "sgcc" ? "tel" : undefined} onChange={(event) => setUsername(event.target.value)} /></label>
             {smsLogin ? (
               <label>短信验证码<input value={password} autoComplete="one-time-code" inputMode="numeric" onChange={(event) => setPassword(event.target.value)} /></label>
             ) : (
@@ -252,7 +266,14 @@ export function VendorLogin({
                 <label>邮箱验证码<input value={emailCode} autoComplete="one-time-code" onChange={(event) => setEmailCode(event.target.value)} /></label>
               </>
             ) : null}
+            {needDevice ? (
+              <>
+                <p className="hint">新设备安全验证，短信已发到这个手机号</p>
+                <label>短信验证码<input value={deviceCode} autoComplete="one-time-code" inputMode="numeric" onChange={(event) => setDeviceCode(event.target.value)} /></label>
+              </>
+            ) : null}
             {vendorId === "pantum" ? <p className="hint">使用奔图云账号。打印机需已在奔图 App 绑定。</p> : null}
+            {vendorId === "sgcc" && !needDevice ? <p className="hint">使用网上国网手机号和密码。每个户号会显示为一块电表。</p> : null}
             {vendorId === "demo" ? <p className="hint">演示账号任意用户名，密码 demo</p> : null}
             {vendorId === "midea" && mode === "password" ? <p className="hint">美居账号为手机号和密码</p> : null}
             {smsLogin ? <p className="hint">{needCaptcha ? "先填写图形验证码，再获取短信" : smsSent ? "短信已发送" : "验证码会发到这个手机号"}</p> : null}

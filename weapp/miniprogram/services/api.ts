@@ -72,10 +72,15 @@ interface RequestOptions {
 
 function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   if (!config.apiKey) return Promise.reject(new Error("请先填写 API Key"));
+  const method = options.method || "GET";
+  const url = `${config.baseUrl}/api/open${path}`;
+  const startedAt = Date.now();
+  // 只在日志里输出路径和请求体，绝不输出 Authorization / API Key。
+  console.log(`[api] -> ${method} ${url}`, options.data === undefined ? "" : options.data);
   return new Promise<T>((resolve, reject) => {
     wx.request({
-      url: `${config.baseUrl}/api/open${path}`,
-      method: options.method || "GET",
+      url,
+      method,
       data: options.data,
       timeout: 15000,
       header: {
@@ -84,13 +89,18 @@ function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
       },
       success(response) {
         const body = (response.data || {}) as { error?: string };
+        const elapsed = Date.now() - startedAt;
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          console.log(`[api] <- ${response.statusCode} ${method} ${path} ${elapsed}ms`, body);
           resolve(body as T);
           return;
         }
+        console.warn(`[api] <- ${response.statusCode} ${method} ${path} ${elapsed}ms`, body.error || body);
         reject(new ApiError(body.error || `服务请求失败（${response.statusCode}）`, response.statusCode));
       },
       fail(result) {
+        const elapsed = Date.now() - startedAt;
+        console.error(`[api] xx ${method} ${path} ${elapsed}ms ${result.errMsg || ""}`);
         reject(new Error(result.errMsg || "无法连接服务，请检查地址和网络"));
       },
     });

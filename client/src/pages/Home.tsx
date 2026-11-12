@@ -433,6 +433,7 @@ export function Home({
                   <button type="button" className="run-card" key={deviceKey(device)} onClick={() => void openDevice(device)}>
                     <p className="room"><b>{shortVendor(vendorName(device.vendorId))}</b> · {view.place}</p>
                     <h3>{device.name}</h3>
+                    {view.usage ? <p className="usage">{view.usage}</p> : null}
                     <div className="grow" />
                     {view.mode === "pair" ? (
                       <div className="tds">

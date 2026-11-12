@@ -59,7 +59,12 @@ export interface ValueOption {
 }
 
 /** 控件类型：由服务端 controls 层下发，前端只负责渲染 */
-export type ControlKind = "switch" | "segmented" | "select" | "slider" | "number" | "text";
+export type ControlKind = "switch" | "segmented" | "select" | "slider" | "number" | "text" | "table";
+
+export interface DataTable {
+  columns: Array<{ key: string; name: string }>;
+  rows: Array<Record<string, string>>;
+}
 
 export interface DeviceProp {
   /** 档案层的稳定字段名，写回时带它，服务端据此选转换器 */
@@ -74,6 +79,7 @@ export interface DeviceProp {
   range: [number, number, number] | null;
   list: ValueOption[];
   value: PropValue;
+  table?: DataTable;
 }
 
 export interface DeviceAction {
@@ -98,6 +104,7 @@ export interface DeviceDetail {
 export type PasswordLogin =
   | { needCaptcha: true; pendingId: string; vendor?: string }
   | { needEmailCode: true; pendingId: string; vendor?: string }
+  | { needDeviceCode: true; pendingId: string; vendor?: string }
   | OkSession;
 
 export type QrPoll = { pending: true } | OkSession;

@@ -1,4 +1,4 @@
-import type { ControlKind } from "../controls/types.js";
+import type { ControlKind, DataTable } from "../controls/types.js";
 
 export type AuthMode = "password" | "sms" | "qr";
 
@@ -48,6 +48,7 @@ export interface DeviceProperty {
   list: Array<{ value: string | number | boolean; name: string }>;
   value?: unknown;
   error?: number;
+  table?: DataTable;
 }
 
 export interface DeviceAction {
@@ -86,7 +87,8 @@ export interface VendorSession {
 export type LoginOutcome =
   | { kind: "ok"; session: VendorSession }
   | { kind: "captcha"; pending: PendingAuth; captchaUrl: string }
-  | { kind: "email"; pending: PendingAuth };
+  | { kind: "email"; pending: PendingAuth }
+  | { kind: "device"; pending: PendingAuth };
 
 export interface PendingAuth {
   id?: string;

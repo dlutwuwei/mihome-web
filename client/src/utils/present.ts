@@ -126,6 +126,7 @@ export interface RunningView {
   place: string;
   mode: "text" | "pair";
   text: string;
+  usage: string;
   left: string;
   leftLabel: string;
   right: string;
@@ -191,6 +192,24 @@ function faultNote(live: LiveChip[]) {
 
 export function runningView(device: Device): RunningView {
   const live = device.live || [];
+  const fee = findChip(live, (name) => name === "当月电费");
+  if (fee) {
+    const amount = parseNum(fee.text);
+    const usage = findChip(live, (name) => name === "当月用电");
+    const usageValue = usage ? parseNum(usage.text) : null;
+    return {
+      device,
+      place: placeOf(device),
+      mode: "text",
+      text: amount == null ? "—" : `${figure(fee.text)} 元`,
+      usage: usageValue == null ? "当月电量 —" : `当月电量 ${figure(usage?.text || "")} kWh`,
+      left: "",
+      leftLabel: "",
+      right: "",
+      rightLabel: "",
+      meta: "当月电费",
+    };
+  }
   const waters = live.filter((item) => /溶解|tds|进水|出水|water/i.test(item.name)).slice(0, 2);
   const note = faultNote(live);
   const place = placeOf(device);
@@ -207,6 +226,7 @@ export function runningView(device: Device): RunningView {
       place,
       mode: "pair",
       text: "",
+      usage: "",
       left: pair[0].value,
       leftLabel: pair[0].label,
       right: pair[1].value,
@@ -219,6 +239,7 @@ export function runningView(device: Device): RunningView {
     place,
     mode: "text",
     text: statusText(live),
+    usage: "",
     left: "",
     leftLabel: "",
     right: "",

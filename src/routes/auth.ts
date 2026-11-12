@@ -33,7 +33,7 @@ function bind(req: import("express").Request, res: import("express").Response, s
 }
 
 authRouter.post("/login/password", async (req, res) => {
-  const { username, password, region, captcha, pendingId, vendor = "xiaomi", method, accountId } = req.body || {};
+  const { username, password, region, captcha, deviceCode, pendingId, vendor = "xiaomi", method, accountId } = req.body || {};
   const useSms = method === "sms";
   let pending = pendingId ? takePending(String(pendingId)) : null;
   const restoreId = pendingId ? String(pendingId) : "";
@@ -52,10 +52,14 @@ authRouter.post("/login/password", async (req, res) => {
     if (useSms && !provider.loginSms) throw new AppError("该厂商不支持短信登录", "SMS", 400);
     const outcome = useSms && provider.loginSms
       ? await provider.loginSms(pending)
-      : await provider.loginPassword(pending, captcha || "");
+      : await provider.loginPassword(pending, String(deviceCode || captcha || ""));
     if (outcome.kind === "captcha") {
       const id = keepPending(outcome.pending);
       return res.json({ needCaptcha: true, pendingId: id, vendor: provider.id });
+    }
+    if (outcome.kind === "device") {
+      const id = keepPending(outcome.pending);
+      return res.json({ needDeviceCode: true, pendingId: id, vendor: provider.id });
     }
     if (outcome.kind === "email") {
       if (!provider.beginEmail2fa) throw new AppError("该厂商不支持邮箱验证", "EMAIL", 400);

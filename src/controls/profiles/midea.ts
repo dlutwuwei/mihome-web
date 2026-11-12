@@ -251,7 +251,7 @@ export const mideaProfiles: DeviceProfile[] = [
     /* 洗衣机：程序可选，脱水转速按档 */
     id: "midea-washer",
     vendor: "midea",
-    match: { model: ["MG*", "ME*", "TG*", "MD*", "*洗衣机*"] },
+    match: { model: ["MG*", "ME*", "TG*", "MD*", "TD*", "*洗衣机*"] },
     fields: {
       program: {
         label: "程序",

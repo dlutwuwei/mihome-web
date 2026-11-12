@@ -35,7 +35,7 @@ function codecFor(kind: ControlKind, declared?: string) {
 function kindOf(field: VendorField, rule: FieldRule, options: ControlOption[], range: [number, number, number] | null, writable: boolean, value: unknown): ControlKind {
   const kind = pickKind(field, rule, options, range, value);
   /* 写不了的字段只能看，不能给一个拖得动的控件 */
-  return writable || kind === "text" ? kind : "text";
+  return writable || kind === "text" || kind === "table" ? kind : "text";
 }
 
 function pickKind(field: VendorField, rule: FieldRule, options: ControlOption[], range: [number, number, number] | null, value: unknown): ControlKind {
@@ -52,7 +52,7 @@ function pickKind(field: VendorField, rule: FieldRule, options: ControlOption[],
   return "text";
 }
 
-function resolveField(field: VendorField, rule: FieldRule, index: number, order: string[]): ResolvedField {
+function resolveField(field: VendorField, rule: FieldRule, index: number, order: string[], keep: string[] | null): ResolvedField {
   const mapped = codecOptions(rule);
   const options = mapped.length ? mapped : field.options || [];
   const min = rule.min ?? field.range?.[0];
@@ -61,6 +61,8 @@ function resolveField(field: VendorField, rule: FieldRule, index: number, order:
   const range: [number, number, number] | null =
     min != null || max != null ? [min ?? 0, max ?? (min ?? 0) + 100, step ?? 1] : field.range || null;
   const at = order.findIndex((pattern) => matchesPattern(pattern, field.key));
+  /* 白名单顺序就是展示优先级；没写 order 时用它排在最前面 */
+  const keptAt = keep ? keep.findIndex((pattern) => matchesPattern(pattern, field.key)) : -1;
   const writable = rule.writable ?? field.writable;
   /* 先用原始值估出控件类型才能挑转换器，再用转换后的值修正一次 */
   const guess = kindOf(field, rule, options, range, writable, field.raw);
@@ -78,10 +80,11 @@ function resolveField(field: VendorField, rule: FieldRule, index: number, order:
     group: rule.group ?? field.group ?? "状态",
     value,
     raw: field.raw,
-    order: rule.order ?? (at < 0 ? 1000 + index : at),
+    order: rule.order ?? (keptAt >= 0 ? keptAt : at < 0 ? 1000 + index : at),
     siid: field.siid,
     piid: field.piid,
     meta: field.meta,
+    table: field.table,
   };
 }
 
@@ -114,10 +117,12 @@ export function buildPanel(device: DeviceSummary, fields: VendorField[], actions
   const view = resolveProfile(device);
   const order = view.order();
   const groups = view.groups();
+  const keep = view.keep();
+  const keepActions = view.keepActions();
   const resolved = fields
     .map((field, index) => ({ field, rule: view.rule(field.key), index }))
     .filter(({ rule }) => !rule.hidden)
-    .map(({ field, rule, index }) => resolveField(field, rule, index, order));
+    .map(({ field, rule, index }) => resolveField(field, rule, index, order, keep));
 
   const buckets = new Map<string, ResolvedField[]>();
   for (const item of resolved) {
@@ -127,8 +132,18 @@ export function buildPanel(device: DeviceSummary, fields: VendorField[], actions
   }
   const kept = actions
     .map((action, index) => ({ action, rule: view.action(action.key), index }))
-    .filter(({ rule }) => !rule.hidden)
-    .sort((a, b) => (a.rule.order ?? a.index) - (b.rule.order ?? b.index));
+    .filter(
+      ({ action, rule }) =>
+        !rule.hidden && (!keepActions || keepActions.some((pattern) => matchesPattern(pattern, action.key))),
+    )
+    .sort((a, b) => {
+      const orderOf = (row: typeof a) => {
+        if (row.rule.order != null) return row.rule.order;
+        const at = keepActions ? keepActions.findIndex((pattern) => matchesPattern(pattern, row.action.key)) : -1;
+        return at >= 0 ? at : row.index;
+      };
+      return orderOf(a) - orderOf(b);
+    });
 
   /* 只有动作没有属性的分组（例如“打印”）也要占一个位置 */
   const names = new Set<string>(buckets.keys());
@@ -149,6 +164,7 @@ export function buildPanel(device: DeviceSummary, fields: VendorField[], actions
       range: item.range,
       list: item.options,
       value: item.value,
+      table: item.table,
     }));
     const rows: DeviceAction[] = kept
       .filter(({ action }) => (action.group ?? "状态") === name)

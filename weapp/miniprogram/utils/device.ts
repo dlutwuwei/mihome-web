@@ -132,7 +132,7 @@ export function decorateDevice(device: RawDevice, index: number, liveMap?: LiveM
     glyph: appearance.glyph,
     accent: appearance.accent,
     statusText: device.online ? "在线" : "离线",
-    primaryLive: live.length ? live[0].text : device.online ? "可控制" : "暂不可用",
+    primaryLive: (live.find((item) => item.name === "当月电费") || live[0])?.text || (device.online ? "可控制" : "暂不可用"),
     temperature: ambient ? temperatureOf(live) : null,
     humidity: ambient ? humidityOf(live) : null,
     live: live.slice(0, 3),
@@ -148,6 +148,7 @@ export function inferKind(property: RawProperty): PropertyKind {
 }
 
 export function formatPropertyValue(property: Property): string {
+  if (property.kind === "table") return property.table?.rows.length ? "" : "暂无记录";
   const value = property.value;
   if (value === null || value === undefined || value === "") return "--";
   if (typeof value === "boolean") return value ? "开启" : "关闭";

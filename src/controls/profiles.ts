@@ -11,8 +11,12 @@ let dir = process.env.MIHOME_PROFILE_DIR || path.resolve("data/profiles");
 let runtimeCache: { stamp: string; profiles: DeviceProfile[] } | null = null;
 
 export interface ProfileView {
-  /** 该字段的最终规则；omit 命中的字段会带 hidden: true */
+  /** 该字段的最终规则；omit 或 keep 未命中的字段会带 hidden: true */
   rule(key: string): FieldRule;
+  /** 当前生效的展示白名单；null 表示不做限制 */
+  keep(): string[] | null;
+  /** 当前生效的动作白名单；null 表示不做限制 */
+  keepActions(): string[] | null;
   order(): string[];
   groups(): Record<string, { name?: string; order?: number }>;
   action(key: string): { label?: string; hidden?: boolean; order?: number };
@@ -77,7 +81,22 @@ export function resolveProfile(device: DeviceSummary): ProfileView {
     .filter((row) => row.tier >= 0)
     .sort((a, b) => a.tier - b.tier);
 
+  /* 白名单按层级覆盖，而不是取并集：设备级配置可以收窄型号级的范围 */
+  const listOf = (pick: (profile: DeviceProfile) => string[] | undefined) => {
+    let list: string[] | null = null;
+    for (const { profile } of rows) {
+      const value = pick(profile);
+      if (value) list = value;
+    }
+    return list;
+  };
+  const keep = listOf((profile) => profile.keep);
+  const keepActions = listOf((profile) => profile.keepActions);
+  const inKeep = (patterns: string[] | null, key: string) => !patterns || patterns.some((pattern) => hit(pattern, key));
+
   const rule = (key: string): FieldRule => {
+    /* 没进白名单的字段直接按隐藏处理，展示和写回共用同一套判断 */
+    if (!inKeep(keep, key)) return { hidden: true };
     const hits: Array<{ at: number; rule: FieldRule }> = [];
     for (const { profile, tier } of rows) {
       for (const [pattern, fieldRule] of Object.entries(profile.fields || {})) {
@@ -93,6 +112,8 @@ export function resolveProfile(device: DeviceSummary): ProfileView {
 
   return {
     rule,
+    keep: () => keep,
+    keepActions: () => keepActions,
     order: () => {
       const keys: string[] = [];
       /* 高层级档案先出现，先声明者优先，未声明的字段排在后面 */

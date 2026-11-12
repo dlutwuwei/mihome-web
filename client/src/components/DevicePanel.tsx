@@ -71,6 +71,30 @@ const PRINT_FIELDS: Array<{ key: keyof PrintOptions; label: string; options: Arr
 
 const LEAVE_MS = 240;
 
+function UsageTable({ prop }: { prop: DeviceProp }) {
+  const table = prop.table;
+  const rows = table?.rows || [];
+  return (
+    <div className="usage">
+      <table className="usage-table">
+        <thead>
+          <tr>
+            {(table?.columns || []).map((column) => <th key={column.key} scope="col">{column.name}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key || row.date || JSON.stringify(row)}>
+              {(table?.columns || []).map((column) => <td key={column.key}>{row[column.key] || "—"}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {rows.length ? null : <p className="hint">暂无记录</p>}
+    </div>
+  );
+}
+
 export function DevicePanel({
   detail,
   subtitle,
@@ -131,7 +155,11 @@ export function DevicePanel({
           <section className="svc" key={service.name}>
             <h3>{service.name}</h3>
             {service.properties.map((prop) => (
-              <PropRow key={prop.id || `${prop.siid}:${prop.piid}`} prop={prop} onSet={onSet} />
+              prop.kind === "table" ? (
+                <UsageTable key={prop.id || `${prop.siid}:${prop.piid}`} prop={prop} />
+              ) : (
+                <PropRow key={prop.id || `${prop.siid}:${prop.piid}`} prop={prop} onSet={onSet} />
+              )
             ))}
             {service.actions.map((action) => (
               action.id === "print" || action.name === "上传打印" ? (
